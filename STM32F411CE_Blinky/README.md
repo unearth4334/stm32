@@ -95,6 +95,48 @@ config show
 poll on 2000
 ```
 
+## Host Console App (Linux + Windows)
+
+A cross-platform host utility is provided to interact with the board console:
+
+- Script: `tools/stm32_console.py`
+- Dependency file: `tools/requirements.txt`
+
+### Install dependency
+
+Linux / Windows (PowerShell, CMD):
+
+```bash
+python -m pip install -r tools/requirements.txt
+```
+
+### Interactive mode
+
+Auto-detect serial port (`0483:5740` preferred):
+
+```bash
+python tools/stm32_console.py
+```
+
+Manual port examples:
+
+```bash
+python tools/stm32_console.py --port /dev/ttyACM0
+python tools/stm32_console.py --port COM4
+```
+
+### Batch mode examples
+
+```bash
+python tools/stm32_console.py --command help --command status --command "read c"
+```
+
+Useful options:
+
+- `--baud 115200`
+- `--newline crlf|lf|cr`
+- `--wait-after 0.3`
+
 ## Build
 
 ```bash
