@@ -1,0 +1,13 @@
+{
+  "name": "STS40",
+  "apiVersion": "1.0.0",
+  "author": "shy coder",
+  "version": "0.0.1",
+  "description": "",
+  "extensions": {
+    "STS40": {
+      "type": "HighLevelAnalyzer",
+      "entryPoint": "HighLevelAnalyzer.Hla"
+    }
+  }
+}

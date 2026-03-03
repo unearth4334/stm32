@@ -217,7 +217,10 @@ static void App_CmdRead(Console *console, void *user_context, uint8_t argc, char
                                       app_context->sts40_device.config.default_repeatability,
                                       &temperature_c) == STS40_STATUS_OK)
         {
-            Console_Printf(console, "temp_c=%.2f\r\n", temperature_c);
+            int32_t temp_int = (int32_t)temperature_c;
+            int32_t temp_frac = (int32_t)((temperature_c - temp_int) * 100.0f);
+            if (temp_frac < 0) temp_frac = -temp_frac;
+            Console_Printf(console, "temp_c=%ld.%02ld\r\n", temp_int, temp_frac);
         }
         else
         {
@@ -233,7 +236,10 @@ static void App_CmdRead(Console *console, void *user_context, uint8_t argc, char
                                       app_context->sts40_device.config.default_repeatability,
                                       &temperature_f) == STS40_STATUS_OK)
         {
-            Console_Printf(console, "temp_f=%.2f\r\n", temperature_f);
+            int32_t temp_int = (int32_t)temperature_f;
+            int32_t temp_frac = (int32_t)((temperature_f - temp_int) * 100.0f);
+            if (temp_frac < 0) temp_frac = -temp_frac;
+            Console_Printf(console, "temp_f=%ld.%02ld\r\n", temp_int, temp_frac);
         }
         else
         {
@@ -243,6 +249,50 @@ static void App_CmdRead(Console *console, void *user_context, uint8_t argc, char
     }
 
     Console_WriteLine(console, "Usage: read c|f|raw");
+}
+
+static void App_CmdDebug(Console *console, void *user_context, uint8_t argc, char **argv)
+{
+    AppConsoleContext *app_context = (AppConsoleContext *)user_context;
+    uint8_t command;
+    uint8_t data[3];
+    uint16_t i;
+
+    (void)argc;
+    (void)argv;
+
+    if ((app_context == NULL) || !app_context->sts40_ready)
+    {
+        Console_WriteLine(console, "ERR sensor not ready");
+        return;
+    }
+
+    command = 0xFDU; // HIGH repeatability measure
+    
+    if (App_Sts40_I2cWrite(Board_I2cHandle(), 0x44, &command, 1U) != 0)
+    {
+        Console_WriteLine(console, "ERR write failed");
+        return;
+    }
+
+    app_context->sts40_device.io.delay_ms(app_context->sts40_device.io.context, 9U);
+
+    if (App_Sts40_I2cRead(Board_I2cHandle(), 0x44, data, 3U) != 0)
+    {
+        Console_WriteLine(console, "ERR read failed");
+        return;
+    }
+
+    Console_Printf(console, "raw bytes: ");
+    for (i = 0U; i < 3U; ++i)
+    {
+        Console_Printf(console, "%02X ", data[i]);
+    }
+    Console_WriteLine(console, "");
+    
+    Console_Printf(console, "temp_raw=0x%04X (%u)\r\n", 
+                   (uint16_t)((uint16_t)data[0] << 8U) | data[1],
+                   (uint16_t)((uint16_t)data[0] << 8U) | data[1]);
 }
 
 static void App_CmdSerial(Console *console, void *user_context, uint8_t argc, char **argv)
@@ -465,6 +515,7 @@ static const ConsoleCommand app_console_commands[] = {
     {"help", "Show command list", App_CmdHelp},
     {"status", "Show sensor/runtime status", App_CmdStatus},
     {"read", "Read sensor value", App_CmdRead},
+    {"debug", "Debug: dump raw I2C bytes", App_CmdDebug},
     {"serial", "Read sensor serial number", App_CmdSerial},
     {"reset", "Reset sensor", App_CmdReset},
     {"config", "Configure sensor", App_CmdConfig},
@@ -530,7 +581,10 @@ void App_Blinky_Run(void)
                                           app_context.sts40_device.config.default_repeatability,
                                           &temperature_c) == STS40_STATUS_OK)
             {
-                Console_Printf(&console, "poll temp_c=%.2f\r\n", temperature_c);
+                int32_t temp_int = (int32_t)temperature_c;
+                int32_t temp_frac = (int32_t)((temperature_c - temp_int) * 100.0f);
+                if (temp_frac < 0) temp_frac = -temp_frac;
+                Console_Printf(&console, "poll temp_c=%ld.%02ld\r\n", temp_int, temp_frac);
             }
 
             app_context.next_poll_at_ms = now_ms + app_context.poll_period_ms;
