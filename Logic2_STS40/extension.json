@@ -1,9 +1,9 @@
 {
-  "name": "STS40",
+  "name": "STS40 Temperature Sensor Decoder",
   "apiVersion": "1.0.0",
   "author": "shy coder",
   "version": "0.0.1",
-  "description": "",
+  "description": "Decodes I2C communication with STS40 temperature sensors and displays temperature readings in degrees Celsius",
   "extensions": {
     "STS40": {
       "type": "HighLevelAnalyzer",
