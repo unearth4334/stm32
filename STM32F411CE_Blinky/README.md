@@ -58,8 +58,42 @@ Implemented console commands:
 - `poll on <period_ms>` / `poll off`
 - `led on|off|toggle`
 
-The default implementation in `src/usb_console_port.c` is a weak stub. To use real USB console I/O,
-override `UsbConsole_ReadByte()` and `UsbConsole_Write()` from your USB CDC transport layer.
+`src/usb_console_port.c` is now bound to native USB CDC transport.
+
+Native USB CDC integration files:
+
+- `src/usb_device.c`
+- `src/usbd_conf.c`
+- `src/usbd_desc.c`
+- `src/usbd_cdc_if.c`
+- `src/stm32f4xx_it.c` (OTG FS IRQ handler)
+
+Console over board USB port test workflow:
+
+1. Flash firmware and boot normally (`BOOT0=0`).
+2. Connect board USB data port.
+3. On host, locate console node:
+
+```bash
+ls -l /dev/ttyACM*
+```
+
+4. Open terminal at 115200 8N1 (for example):
+
+```bash
+screen /dev/ttyACM0 115200
+```
+
+5. Try commands:
+
+```text
+help
+status
+read c
+serial
+config show
+poll on 2000
+```
 
 ## Build
 

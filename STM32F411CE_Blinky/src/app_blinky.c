@@ -5,6 +5,7 @@
 #include "console.h"
 #include "led_driver.h"
 #include "sts40_driver.h"
+#include "usb_device.h"
 #include "usb_console_port.h"
 
 #include <stdbool.h>
@@ -483,6 +484,7 @@ void App_Blinky_Run(void)
     memset(&app_context, 0, sizeof(app_context));
 
     Board_Init();
+    MX_USB_DEVICE_Init();
     LedDriver_Init();
 
     sts40_io.context = Board_I2cHandle();
