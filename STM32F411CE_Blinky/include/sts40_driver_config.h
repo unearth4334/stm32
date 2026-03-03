@@ -23,7 +23,7 @@
 #define STS40_CRC8_INIT                              (0xFFU)
 #define STS40_CRC8_FINAL_XOR                         (0x00U)
 
-#define STS40_DRIVER_ENABLE_CRC_CHECK                (1U)
+#define STS40_DRIVER_ENABLE_CRC_CHECK                (0U)
 #define STS40_DRIVER_ENABLE_RETRY                    (1U)
 #define STS40_DRIVER_IO_RETRY_COUNT                  (2U)
 #define STS40_DRIVER_IO_RETRY_DELAY_MS               (1U)
