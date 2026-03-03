@@ -32,3 +32,16 @@ pio run -t upload
 ```
 
 `upload` uses `scripts/dfu_upload.sh`, which invokes the container from the workspace root using `../docker-compose.yml`.
+
+The upload script waits for DFU device `0483:df11` before flashing.
+Optional tuning:
+
+```bash
+DFU_WAIT_SECONDS=30 DFU_RETRY_INTERVAL=1 pio run -t upload
+```
+
+Verbose retry diagnostics (prints `dfu-util -l` each poll):
+
+```bash
+DFU_VERBOSE=1 DFU_WAIT_SECONDS=30 pio run -t upload
+```
