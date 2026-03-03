@@ -11,4 +11,19 @@
 
 #define BOARD_BLINK_TOGGLE_PERIOD_MS         (500U)
 
+#define BOARD_I2C_INSTANCE                   I2C1
+#define BOARD_I2C_TIMING_HZ                  (100000U)
+#define BOARD_I2C_TIMEOUT_MS                 (100U)
+
+#define BOARD_I2C_GPIO_PORT                  GPIOB
+#define BOARD_I2C_GPIO_CLK_ENABLE()          __HAL_RCC_GPIOB_CLK_ENABLE()
+#define BOARD_I2C_SCL_PIN                    GPIO_PIN_8
+#define BOARD_I2C_SDA_PIN                    GPIO_PIN_9
+#define BOARD_I2C_AF                         GPIO_AF4_I2C1
+
+#define BOARD_I2C_CLK_ENABLE()               __HAL_RCC_I2C1_CLK_ENABLE()
+
+#define BOARD_STS40_I2C_ADDRESS              (0x44U)
+#define BOARD_STS40_POLL_PERIOD_MS           (2000U)
+
 #endif
