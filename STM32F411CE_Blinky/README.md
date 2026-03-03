@@ -118,6 +118,13 @@ Auto-detect serial port (`0483:5740` preferred):
 python tools/stm32_console.py
 ```
 
+In interactive mode, local helper commands are available:
+
+- `/help` show local help
+- `/ports` list detected serial ports
+- `/clear` clear terminal
+- `/quit` exit
+
 Manual port examples:
 
 ```bash

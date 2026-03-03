@@ -8,6 +8,11 @@ import threading
 import time
 from typing import Optional
 
+try:
+    import readline  # type: ignore
+except Exception:  # pragma: no cover
+    readline = None
+
 import serial
 from serial.tools import list_ports
 
@@ -17,6 +22,38 @@ DEFAULT_PID = 0x5740
 
 class ConsoleError(Exception):
     pass
+
+
+LOCAL_COMMANDS = ["/help", "/ports", "/clear", "/quit"]
+
+
+def _list_ports() -> list:
+    return list(list_ports.comports())
+
+
+def print_ports() -> None:
+    ports = _list_ports()
+    if not ports:
+        print("No serial ports found.")
+        return
+
+    print("Available serial ports:")
+    for port in ports:
+        vid_pid = ""
+        if (port.vid is not None) and (port.pid is not None):
+            vid_pid = f" vid:pid={port.vid:04X}:{port.pid:04X}"
+        desc = f" ({port.description})" if port.description else ""
+        print(f"  - {port.device}{vid_pid}{desc}")
+
+
+def print_interactive_help() -> None:
+    print("Local commands:")
+    print("  /help   Show this help")
+    print("  /ports  List available serial ports")
+    print("  /clear  Clear terminal")
+    print("  /quit   Exit interactive mode")
+    print("Device commands:")
+    print("  help, status, read c, read f, read raw, serial, config ..., poll ...")
 
 
 def _candidate_ports() -> list[str]:
@@ -35,20 +72,35 @@ def _candidate_ports() -> list[str]:
 
 def auto_detect_port(preferred_vid: int, preferred_pid: int) -> Optional[str]:
     matched = []
-    fallback = []
+    acm_preferred = []
+    usb_preferred = []
+    other = []
 
     for port in list_ports.comports():
         if (port.vid == preferred_vid) and (port.pid == preferred_pid):
             matched.append(port.device)
         elif port.device:
-            fallback.append(port.device)
+            if "ttyACM" in port.device:
+                acm_preferred.append(port.device)
+            elif "ttyUSB" in port.device:
+                usb_preferred.append(port.device)
+            else:
+                other.append(port.device)
 
     if matched:
         return matched[0]
 
+    fallback = acm_preferred + usb_preferred + other
+
     for dev in _candidate_ports():
         if dev not in fallback:
-            fallback.append(dev)
+            if "ttyACM" in dev:
+                fallback.insert(0, dev)
+            elif "ttyUSB" in dev:
+                insert_index = len([d for d in fallback if "ttyACM" in d])
+                fallback.insert(insert_index, dev)
+            else:
+                fallback.append(dev)
 
     return fallback[0] if fallback else None
 
@@ -137,7 +189,18 @@ def run_batch_mode(ser: serial.Serial, commands: list[str], eol: bytes, wait_aft
 
 
 def run_interactive_mode(ser: serial.Serial, eol: bytes) -> None:
-    print("Interactive mode. Type 'quit' or 'exit' to leave.")
+    print("Interactive mode. Type /help for local commands. Type /quit to leave.")
+
+    if readline is not None:
+        readline.parse_and_bind("tab: complete")
+
+        def completer(text: str, state: int) -> Optional[str]:
+            choices = [cmd for cmd in LOCAL_COMMANDS if cmd.startswith(text)]
+            if state < len(choices):
+                return choices[state]
+            return None
+
+        readline.set_completer(completer)
 
     out_queue: queue.Queue[str] = queue.Queue()
     stop_event = threading.Event()
@@ -150,10 +213,26 @@ def run_interactive_mode(ser: serial.Serial, eol: bytes) -> None:
     try:
         while True:
             line = input("host> ").strip()
-            if line.lower() in {"quit", "exit"}:
+            if line.lower() in {"quit", "exit", "/quit"}:
                 break
             if not line:
                 continue
+
+            if line == "/help":
+                print_interactive_help()
+                continue
+
+            if line == "/ports":
+                print_ports()
+                continue
+
+            if line == "/clear":
+                if os.name == "nt":
+                    os.system("cls")
+                else:
+                    os.system("clear")
+                continue
+
             send_command(ser, line, eol)
     except (KeyboardInterrupt, EOFError):
         pass
