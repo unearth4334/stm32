@@ -35,6 +35,32 @@ Portability approach:
 
 Key API header: `lib/drivers_sts40/include/sts40_driver.h`
 
+## USB Console Interface (STS4x test + config)
+
+The firmware includes a command console designed to run over the board USB port (CDC-ACM style serial).
+
+- Console core: `lib/console/include/console.h` + `lib/console/src/console.c`
+- USB port adapter contract: `include/usb_console_port.h`
+- App command integration: `src/app_blinky.c`
+
+Implemented console commands:
+
+- `help`
+- `status`
+- `read c|f|raw`
+- `serial`
+- `reset soft|gc`
+- `config show`
+- `config addr <0x44|0x45|0x46>`
+- `config rep <low|medium|high>`
+- `config crc <on|off>`
+- `config retry <count> <delay_ms>`
+- `poll on <period_ms>` / `poll off`
+- `led on|off|toggle`
+
+The default implementation in `src/usb_console_port.c` is a weak stub. To use real USB console I/O,
+override `UsbConsole_ReadByte()` and `UsbConsole_Write()` from your USB CDC transport layer.
+
 ## Build
 
 ```bash
