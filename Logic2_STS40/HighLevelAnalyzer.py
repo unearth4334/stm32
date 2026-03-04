@@ -33,7 +33,7 @@ class Hla(HighLevelAnalyzer):
             'format': 'CMD: {{data.cmd_name}}'
         },
         'temperature': {
-            'format': 'Temperature: {{data.temp_c}} °C'
+            'format': '🌡️ {{data.temp_c}}°C ({{data.temp_f}}°F)'
         },
         'serial': {
             'format': 'Serial: {{data.serial_hex}}'
@@ -199,12 +199,18 @@ class Hla(HighLevelAnalyzer):
         # Convert to temperature in Celsius using datasheet formula
         temp_celsius = -45.0 + 175.0 * (raw_temp / 65535.0)
         
-        # Format temperature to 2 decimal places
-        temp_str = f"{temp_celsius:.2f}"
+        # Convert to Fahrenheit: F = C * 9/5 + 32
+        temp_fahrenheit = temp_celsius * 9.0 / 5.0 + 32.0
         
+        # Return frame with both numeric and formatted string values
+        # Logic2 Data Table can use the numeric 'celsius' and 'fahrenheit' fields for plotting
         return AnalyzerFrame('temperature', self.frame_start_time or start_time, end_time, {
-            'temp_c': temp_str,
+            'temp_c': f"{temp_celsius:.2f}",        # Formatted string for display
+            'temp_f': f"{temp_fahrenheit:.2f}",     # Formatted string for display
+            'celsius': temp_celsius,                 # Numeric value for data table/export
+            'fahrenheit': temp_fahrenheit,           # Numeric value for data table/export
             'raw_value': f"0x{raw_temp:04X}",
+            'raw_decimal': raw_temp,                 # Numeric raw value
             'crc': f"0x{crc:02X}" if crc is not None else "N/A"
         })
 

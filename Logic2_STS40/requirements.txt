@@ -1,0 +1,8 @@
+# Python requirements for STS40 Logic2 Extension
+# Install with: pip install -r requirements.txt
+
+# Data analysis and manipulation
+pandas>=2.0.0
+
+# Plotting library
+matplotlib>=3.7.0

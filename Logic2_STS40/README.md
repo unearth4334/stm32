@@ -4,12 +4,15 @@ A High Level Analyzer extension for Saleae Logic2 that decodes I2C communication
 
 ## Features
 
-- **Temperature Decoding**: Automatically decodes temperature measurements from I2C data and converts to °C
+- **Temperature Decoding**: Automatically decodes temperature measurements from I2C data and converts to °C and °F
+- **Numeric Data Export**: Temperature values are available as numeric data for plotting and analysis
+- **Data Table Integration**: View and export decoded values using Logic2's Data Table feature
 - **Multiple Precision Modes**: Supports high, medium, and low precision measurement commands
 - **Command Recognition**: Identifies and labels STS40 commands (measure, read serial, soft reset)
 - **Multiple I2C Addresses**: Configurable support for addresses 0x44, 0x45, and 0x46
 - **Serial Number Reading**: Decodes sensor serial number when requested
 - **CRC Display**: Shows CRC checksum values for validation
+- **Visual Temperature Display**: Shows readings with temperature emoji (🌡️) in both °C and °F
 
 ## Installation
 
@@ -52,7 +55,80 @@ A High Level Analyzer extension for Saleae Logic2 that decodes I2C communication
 3. **View Results**:
    - Start capturing data
    - The STS40 analyzer will automatically decode temperature readings
-   - Temperature values will appear as: `Temperature: XX.XX °C`
+   - Temperature values will appear as: `🌡️ XX.XX°C (XX.XX°F)`
+
+## Visualizing Temperature Data
+
+### Using Logic2's Data Table
+
+The extension exports numeric temperature values that you can visualize:
+
+1. **Open the Data Table**:
+   - Click on the **Data Table** icon in Logic2
+   - Select the **STS40** analyzer from the list
+   - The table will show all decoded frames with their data
+
+2. **View Temperature Values**:
+   - The `celsius` column contains numeric temperature values in °C
+   - The `fahrenheit` column contains values in °F
+   - The `raw_decimal` column shows the raw 16-bit sensor value
+   - These numeric columns can be exported for plotting
+
+3. **Export for Plotting**:
+   - Click **Export Table** in the Data Table view
+   - Save as CSV file
+   - Open in Excel, Python (matplotlib/pandas), or any plotting tool
+   - Plot `Time` vs `celsius` for a temperature trend graph
+
+### Example: Plotting with Python
+
+```python
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Load exported CSV
+data = pd.read_csv('sts40_data.csv')
+
+# Filter only temperature frames
+temp_data = data[data['type'] == 'temperature']
+
+# Plot temperature over time
+plt.figure(figsize=(12, 6))
+plt.plot(temp_data['time'], temp_data['celsius'], marker='o', linestyle='-', linewidth=2)
+plt.xlabel('Time (s)')
+plt.ylabel('Temperature (°C)')
+plt.title('STS40 Temperature Readings Over Time')
+plt.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+```
+
+**Ready-to-Use Script Included!** 
+
+A complete plotting script (`plot_temperature.py`) is included with this extension. 
+
+First, install the required dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+Then run the plotter:
+```bash
+python plot_temperature.py sts40_data.csv
+```
+
+This will generate:
+- Dual plots (Celsius and Fahrenheit)
+- Statistical summary (mean, min, max, std deviation)
+- High-resolution PNG output
+- Autoscaled with grid and annotations
+
+### Tips for Best Results
+
+- **Continuous Monitoring**: The sensor should be polled regularly (e.g., 1 Hz) for smooth plots
+- **Autoscaling**: Your plotting tool will automatically scale the Y-axis based on temperature range
+- **Long Captures**: For thermal profiling, capture over extended periods (minutes to hours)
+- **Multiple Sensors**: If monitoring multiple STS40 sensors, use different I2C addresses and create separate analyzer instances
 
 ## STS40 Commands Supported
 
@@ -80,13 +156,29 @@ When viewing a capture in Logic2, you'll see decoded frames like:
 
 ```
 CMD: Measure T (High Precision)
-Temperature: 23.45 °C
+🌡️ 23.45°C (74.21°F)
 CMD: Measure T (Medium Precision)
-Temperature: 24.12 °C
+🌡️ 24.12°C (75.42°F)
 CMD: Read Serial Number
 Serial: 0x12345678
 Soft Reset
 ```
+
+### Data Table Columns
+
+When viewing the Data Table, temperature frames will include:
+
+| Column | Type | Description | Use Case |
+|--------|------|-------------|----------|
+| `temp_c` | string | Formatted °C value | Display |
+| `temp_f` | string | Formatted °F value | Display |
+| `celsius` | **numeric** | Raw °C value | **Plotting/Export** |
+| `fahrenheit` | **numeric** | Raw °F value | **Plotting/Export** |
+| `raw_decimal` | numeric | 16-bit sensor value | Analysis |
+| `raw_value` | string | Hex sensor value | Debugging |
+| `crc` | string | CRC checksum | Validation |
+
+The **numeric** `celsius` and `fahrenheit` columns are perfect for creating temperature plots!
 
 ## Configuration Options
 
