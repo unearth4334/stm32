@@ -32,7 +32,8 @@ jobs:
           git clone --depth 1 https://github.com/STMicroelectronics/stm32cubef4 third_party/stm32cubef4
           git -C third_party/stm32cubef4 submodule update --init --depth 1 --recommend-shallow \
             Drivers/CMSIS/Device/ST/STM32F4xx \
-            Drivers/STM32F4xx_HAL_Driver
+            Drivers/STM32F4xx_HAL_Driver \
+            Middlewares/Third_Party/FreeRTOS
 
       - name: Populate startup files
         run: |
