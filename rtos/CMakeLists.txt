@@ -30,6 +30,7 @@ if(STM32_USE_FREERTOS)
             ${CMSIS_DEVICE_DIR}
             ${STM32CUBE_HAL_DIR}/Inc
             ${STM32CUBE_HAL_DIR}/Inc/Legacy
+            ${CMAKE_SOURCE_DIR}/boards/blackpill_f411ce/include
     )
 
     target_compile_definitions(freertos_kernel PUBLIC
