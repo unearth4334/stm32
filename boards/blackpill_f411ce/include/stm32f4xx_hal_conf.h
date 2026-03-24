@@ -68,6 +68,8 @@ extern "C" {
 #include "stm32f4xx_hal_gpio.h"
 #endif
 
+#include "stm32f4xx_hal_dma.h"
+
 #ifdef HAL_I2C_MODULE_ENABLED
 #include "stm32f4xx_hal_i2c.h"
 #endif
