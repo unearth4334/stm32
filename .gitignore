@@ -1,1 +1,61 @@
-stm32.code-workspace
+# VS Code
+.vscode/
+*.code-workspace
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.venv/
+venv/
+
+# CMake / Ninja / Make build outputs
+build/
+build-*/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+compile_commands.json
+Makefile
+*.ninja
+.ninja_deps
+.ninja_log
+
+# Generated binaries / maps / debug artifacts
+*.elf
+*.hex
+*.bin
+*.map
+*.lst
+*.srec
+*.dmp
+*.su
+
+# Object and dependency files
+*.o
+*.obj
+*.a
+*.lib
+*.d
+*.dep
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+*.swp
+*.swo
+*.bak
+*.orig
+
+# IDE metadata (common embedded tooling)
+.idea/
+.project
+.cproject
+.settings/
+
+# OS artifacts
+.DS_Store
+Thumbs.db
