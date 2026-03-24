@@ -1,0 +1,58 @@
+name: build-blinky
+
+on:
+  push:
+    branches:
+      - main
+      - explore/**
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-firmware:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install toolchain and build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake \
+            ninja-build \
+            gcc-arm-none-eabi \
+            binutils-arm-none-eabi
+
+      - name: Populate STM32CubeF4 vendor sources
+        run: |
+          rm -rf third_party/stm32cubef4
+          git clone --depth 1 https://github.com/STMicroelectronics/stm32cubef4 third_party/stm32cubef4
+
+      - name: Populate startup files
+        run: |
+          cp third_party/stm32cubef4/Drivers/CMSIS/Device/ST/STM32F4xx/Source/Templates/gcc/startup_stm32f411xe.s startup/
+          cp third_party/stm32cubef4/Drivers/CMSIS/Device/ST/STM32F4xx/Source/Templates/system_stm32f4xx.c startup/
+
+      - name: Configure
+        run: |
+          cmake -S . -B build \
+            -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE=cmake/arm-none-eabi.cmake \
+            -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build firmware target
+        run: cmake --build build --target firmware --parallel
+
+      - name: Upload build artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware-artifacts
+          path: |
+            build/projects/blackpill_f411ce_blinky/firmware.elf
+            build/projects/blackpill_f411ce_blinky/firmware.bin
+            build/projects/blackpill_f411ce_blinky/firmware.hex
+            build/projects/blackpill_f411ce_blinky/firmware.map
+          if-no-files-found: warn

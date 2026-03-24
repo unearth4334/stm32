@@ -3,11 +3,22 @@
 
 set(TARGET firmware)
 
-add_executable(${TARGET}
+set(PROJECT_SOURCES
     main.c
-    # Startup file — copy from third_party/cmsis or vendor startup/ folder
-    # ${CMAKE_SOURCE_DIR}/startup/startup_stm32f411xe.s
 )
+
+set(STARTUP_FILE "${CMAKE_SOURCE_DIR}/startup/startup_stm32f411xe.s")
+set(SYSTEM_FILE  "${CMAKE_SOURCE_DIR}/startup/system_stm32f4xx.c")
+
+if(EXISTS "${STARTUP_FILE}")
+    list(APPEND PROJECT_SOURCES "${STARTUP_FILE}")
+endif()
+
+if(EXISTS "${SYSTEM_FILE}")
+    list(APPEND PROJECT_SOURCES "${SYSTEM_FILE}")
+endif()
+
+add_executable(${TARGET} ${PROJECT_SOURCES})
 
 target_include_directories(${TARGET} PRIVATE
     ${CMAKE_SOURCE_DIR}/boards/blackpill_f411ce/include
