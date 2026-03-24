@@ -10,11 +10,17 @@ project(stm32f4_firmware C ASM)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
+option(STM32_USE_FREERTOS "Enable FreeRTOS-oriented startup path" OFF)
+
 # ── Common compile definitions ──────────────────────────────────────────────
 add_compile_definitions(
     USE_HAL_DRIVER
     STM32F411xE
 )
+
+if(STM32_USE_FREERTOS)
+    add_compile_definitions(USE_FREERTOS=1)
+endif()
 
 # ── Common include paths shared across all libraries ──────────────────────
 # Prefer a dedicated third_party/cmsis checkout when available.
@@ -31,6 +37,7 @@ endif()
 
 # ── Sub-libraries ───────────────────────────────────────────────────────────
 add_subdirectory(platform)
+add_subdirectory(osal)
 add_subdirectory(drivers)
 add_subdirectory(services)
 add_subdirectory(app)
