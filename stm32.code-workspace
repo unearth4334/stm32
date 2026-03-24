@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"name": "STM32F411CE_Blinky",
+			"path": "STM32F411CE_Blinky"
+		}
+	],
+	"settings": {}
+}
