@@ -5,6 +5,7 @@ set(TARGET firmware)
 
 set(PROJECT_SOURCES
     main.c
+    stm32f4xx_it.c
 )
 
 set(STARTUP_FILE "${CMAKE_SOURCE_DIR}/startup/startup_stm32f411xe.s")
