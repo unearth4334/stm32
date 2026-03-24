@@ -10,6 +10,7 @@ extern "C" {
 /* Select HAL modules used by this firmware. */
 #define HAL_MODULE_ENABLED
 #define HAL_CORTEX_MODULE_ENABLED
+#define HAL_FLASH_MODULE_ENABLED
 #define HAL_GPIO_MODULE_ENABLED
 #define HAL_RCC_MODULE_ENABLED
 #define HAL_PWR_MODULE_ENABLED
@@ -35,6 +36,14 @@ extern "C" {
 #define EXTERNAL_CLOCK_VALUE 12288000U
 #endif
 
+#ifndef HSE_STARTUP_TIMEOUT
+#define HSE_STARTUP_TIMEOUT 100U
+#endif
+
+#ifndef LSE_STARTUP_TIMEOUT
+#define LSE_STARTUP_TIMEOUT 5000U
+#endif
+
 #define VDD_VALUE                    3300U
 #define TICK_INT_PRIORITY            0x0FU
 #define USE_RTOS                     0U
@@ -42,11 +51,16 @@ extern "C" {
 #define INSTRUCTION_CACHE_ENABLE     1U
 #define DATA_CACHE_ENABLE            1U
 
-#define USE_HAL_ASSERT               0U
+#define USE_FULL_ASSERT              0U
 
 /* Export selected module headers. */
 #ifdef HAL_RCC_MODULE_ENABLED
 #include "stm32f4xx_hal_rcc.h"
+#endif
+
+#ifdef HAL_FLASH_MODULE_ENABLED
+#include "stm32f4xx_hal_flash.h"
+#include "stm32f4xx_hal_flash_ex.h"
 #endif
 
 #ifdef HAL_GPIO_MODULE_ENABLED
@@ -61,8 +75,11 @@ extern "C" {
 #include "stm32f4xx_hal_pwr.h"
 #endif
 
-#if (USE_HAL_ASSERT == 1U)
+#if (USE_FULL_ASSERT == 1U)
 void assert_failed(uint8_t *file, uint32_t line);
+#define assert_param(expr) ((expr) ? (void)0U : assert_failed((uint8_t *)__FILE__, __LINE__))
+#else
+#define assert_param(expr) ((void)0U)
 #endif
 
 #ifdef __cplusplus
