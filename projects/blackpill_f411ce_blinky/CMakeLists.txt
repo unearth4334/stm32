@@ -24,6 +24,10 @@ target_include_directories(${TARGET} PRIVATE
     ${CMAKE_SOURCE_DIR}/boards/blackpill_f411ce/include
     ${CMAKE_SOURCE_DIR}/platform/include
     ${CMAKE_SOURCE_DIR}/app
+    ${CMSIS_INCLUDE_DIR}
+    ${CMSIS_DEVICE_DIR}
+    ${STM32CUBE_HAL_DIR}/Inc
+    ${STM32CUBE_HAL_DIR}/Inc/Legacy
 )
 
 target_link_libraries(${TARGET}
