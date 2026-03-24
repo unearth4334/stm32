@@ -139,6 +139,13 @@ def build_parser() -> argparse.ArgumentParser:
         default=0.3,
         help="Seconds to wait after each batch command (default: 0.3)",
     )
+    parser.add_argument(
+        "--bar",
+        type=int,
+        default=0,
+        metavar="WIDTH",
+        help="Show temperature bar graph with WIDTH characters (e.g., --bar 10). Temp range: 0-50°C",
+    )
     return parser
 
 
@@ -168,28 +175,106 @@ def _reader_worker(ser: serial.Serial, out_queue: queue.Queue[str], stop_event: 
             out_queue.put(data.decode("utf-8", errors="replace"))
 
 
-def _printer_worker(out_queue: queue.Queue[str], stop_event: threading.Event) -> None:
+def _printer_worker(out_queue: queue.Queue[str], stop_event: threading.Event, bar_width: int = 0) -> None:
+    """Print output from serial, optionally adding temperature bar graphs."""
+    import re
+    
     while not stop_event.is_set() or not out_queue.empty():
         try:
             chunk = out_queue.get(timeout=0.1)
         except queue.Empty:
             continue
+        
+        # If bar is enabled, check for polling temperature lines and add bar
+        if bar_width > 0:
+            lines = chunk.split('\n')
+            processed_lines = []
+            
+            for line in lines:
+                # Match "poll temp_c=XX.XX" pattern
+                match = re.search(r'poll temp_c=([-\d.]+)', line)
+                if match:
+                    try:
+                        temp_c = float(match.group(1))
+                        bar = _make_temp_bar(temp_c, bar_width)
+                        # Add bar after the temperature value
+                        line = line.rstrip() + '\t' + bar
+                    except ValueError:
+                        pass  # Invalid temperature, skip bar
+                
+                processed_lines.append(line)
+            
+            chunk = '\n'.join(processed_lines)
+        
         sys.stdout.write(chunk)
         sys.stdout.flush()
 
 
-def run_batch_mode(ser: serial.Serial, commands: list[str], eol: bytes, wait_after: float) -> None:
+def _make_temp_bar(temp_c: float, width: int, temp_min: float = 0.0, temp_max: float = 50.0) -> str:
+    """Create temperature bar using Braille characters.
+    
+    Args:
+        temp_c: Temperature in Celsius
+        width: Width of bar in characters
+        temp_min: Minimum temperature for scale (default 0°C)
+        temp_max: Maximum temperature for scale (default 50°C)
+    
+    Returns:
+        String with Braille bar visualization
+    """
+    # Clamp temperature to range
+    temp_clamped = max(temp_min, min(temp_max, temp_c))
+    
+    # Calculate fill ratio (0.0 to 1.0)
+    ratio = (temp_clamped - temp_min) / (temp_max - temp_min)
+    
+    # Calculate number of filled characters
+    filled_chars = int(ratio * width)
+    
+    # Build bar: ⠿ for filled, ⠇ for empty
+    bar = '⠿' * filled_chars + '⠇' * (width - filled_chars)
+    
+    return bar
+
+
+def run_batch_mode(ser: serial.Serial, commands: list[str], eol: bytes, wait_after: float, bar_width: int = 0) -> None:
+    """Run commands in batch mode, optionally with temperature bar visualization."""
+    import re
+    
     for cmd in commands:
         print(f"$ {cmd}")
         send_command(ser, cmd, eol)
         time.sleep(wait_after)
         data = ser.read_all()
         if data:
-            print(data.decode("utf-8", errors="replace"), end="")
+            output = data.decode("utf-8", errors="replace")
+            
+            # If bar is enabled, add bars to polling lines
+            if bar_width > 0:
+                lines = output.split('\n')
+                processed_lines = []
+                
+                for line in lines:
+                    match = re.search(r'poll temp_c=([-\d.]+)', line)
+                    if match:
+                        try:
+                            temp_c = float(match.group(1))
+                            bar = _make_temp_bar(temp_c, bar_width)
+                            line = line.rstrip() + '\t' + bar
+                        except ValueError:
+                            pass
+                    
+                    processed_lines.append(line)
+                
+                output = '\n'.join(processed_lines)
+            
+            print(output, end="")
 
 
-def run_interactive_mode(ser: serial.Serial, eol: bytes) -> None:
+def run_interactive_mode(ser: serial.Serial, eol: bytes, bar_width: int = 0) -> None:
     print("Interactive mode. Type /help for local commands. Type /quit to leave.")
+    if bar_width > 0:
+        print(f"Temperature bar enabled: {bar_width} chars (0-50°C range)")
 
     if readline is not None:
         readline.parse_and_bind("tab: complete")
@@ -206,7 +291,7 @@ def run_interactive_mode(ser: serial.Serial, eol: bytes) -> None:
     stop_event = threading.Event()
 
     reader = threading.Thread(target=_reader_worker, args=(ser, out_queue, stop_event), daemon=True)
-    printer = threading.Thread(target=_printer_worker, args=(out_queue, stop_event), daemon=True)
+    printer = threading.Thread(target=_printer_worker, args=(out_queue, stop_event, bar_width), daemon=True)
     reader.start()
     printer.start()
 
@@ -275,9 +360,9 @@ def main() -> int:
             print(boot_data.decode("utf-8", errors="replace"), end="")
 
         if args.command:
-            run_batch_mode(ser, args.command, eol, args.wait_after)
+            run_batch_mode(ser, args.command, eol, args.wait_after, args.bar)
         else:
-            run_interactive_mode(ser, eol)
+            run_interactive_mode(ser, eol, args.bar)
 
     return 0
 

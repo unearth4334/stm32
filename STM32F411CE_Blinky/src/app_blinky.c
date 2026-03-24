@@ -9,6 +9,7 @@
 #include "usb_console_port.h"
 
 #include <stdbool.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -19,9 +20,233 @@ typedef struct
     bool poll_enabled;
     uint32_t poll_period_ms;
     uint32_t next_poll_at_ms;
+    uint8_t poll_bar_width;
+    float poll_bar_min;
+    float poll_bar_max;
+    uint8_t sensor_addresses[3];
+    uint8_t sensor_count;
     uint32_t next_blink_at_ms;
     uint32_t blink_period_ms;
 } AppConsoleContext;
+
+static bool App_IsValidSensorAddress(uint32_t address)
+{
+    return (address == 0x44U) || (address == 0x45U) || (address == 0x46U);
+}
+
+static bool App_HasDuplicateAddress(const uint8_t *addresses, uint8_t count, uint8_t address)
+{
+    uint8_t i;
+
+    for (i = 0U; i < count; ++i)
+    {
+        if (addresses[i] == address)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static bool App_ParseAddressList(const char *input, uint8_t *addresses_out, uint8_t *count_out)
+{
+    char buffer[16];
+    const char *p = input;
+    uint8_t count = 0U;
+
+    if ((input == NULL) || (addresses_out == NULL) || (count_out == NULL))
+    {
+        return false;
+    }
+
+    if (strcmp(input, "all") == 0)
+    {
+        addresses_out[0] = 0x44U;
+        addresses_out[1] = 0x45U;
+        addresses_out[2] = 0x46U;
+        *count_out = 3U;
+        return true;
+    }
+
+    while (*p != '\0')
+    {
+        uint16_t i = 0U;
+        uint32_t parsed_addr = 0U;
+
+        while ((*p != '\0') && (*p != ',') && (i < (sizeof(buffer) - 1U)))
+        {
+            buffer[i++] = *p++;
+        }
+        buffer[i] = '\0';
+
+        if ((i == 0U) || !App_ParseU32(buffer, &parsed_addr) || !App_IsValidSensorAddress(parsed_addr))
+        {
+            return false;
+        }
+
+        if ((count >= 3U) || App_HasDuplicateAddress(addresses_out, count, (uint8_t)parsed_addr))
+        {
+            return false;
+        }
+
+        addresses_out[count++] = (uint8_t)parsed_addr;
+
+        if (*p == ',')
+        {
+            p++;
+        }
+    }
+
+    if (count == 0U)
+    {
+        return false;
+    }
+
+    *count_out = count;
+    return true;
+}
+
+static void App_FormatAddressList(const AppConsoleContext *app_context, char *buffer, uint16_t buffer_size)
+{
+    uint16_t used;
+    uint8_t i;
+
+    if ((app_context == NULL) || (buffer == NULL) || (buffer_size == 0U))
+    {
+        return;
+    }
+
+    used = 0U;
+    buffer[0] = '\0';
+
+    for (i = 0U; i < app_context->sensor_count; ++i)
+    {
+        int written;
+        const char *separator = (i == 0U) ? "" : ",";
+
+        written = snprintf(&buffer[used],
+                           (size_t)(buffer_size - used),
+                           "%s0x%02X",
+                           separator,
+                           app_context->sensor_addresses[i]);
+        if ((written <= 0) || ((uint16_t)written >= (buffer_size - used)))
+        {
+            break;
+        }
+
+        used = (uint16_t)(used + (uint16_t)written);
+    }
+}
+
+static Sts40Status App_ReadTemperatureForAddress(AppConsoleContext *app_context,
+                                                 uint8_t address,
+                                                 float *temperature_c)
+{
+    uint8_t previous_address;
+    Sts40Status status;
+
+    if ((app_context == NULL) || (temperature_c == NULL))
+    {
+        return STS40_STATUS_INVALID_ARG;
+    }
+
+    previous_address = app_context->sts40_device.config.i2c_address;
+    app_context->sts40_device.config.i2c_address = address;
+
+    status = Sts40_MeasureTemperatureC(&app_context->sts40_device,
+                                       app_context->sts40_device.config.default_repeatability,
+                                       temperature_c);
+
+    app_context->sts40_device.config.i2c_address = previous_address;
+    return status;
+}
+
+static Sts40Status App_ReadRawForAddress(AppConsoleContext *app_context,
+                                         uint8_t address,
+                                         uint16_t *raw)
+{
+    uint8_t previous_address;
+    Sts40Status status;
+
+    if ((app_context == NULL) || (raw == NULL))
+    {
+        return STS40_STATUS_INVALID_ARG;
+    }
+
+    previous_address = app_context->sts40_device.config.i2c_address;
+    app_context->sts40_device.config.i2c_address = address;
+
+    status = Sts40_MeasureRaw(&app_context->sts40_device,
+                              app_context->sts40_device.config.default_repeatability,
+                              raw);
+
+    app_context->sts40_device.config.i2c_address = previous_address;
+    return status;
+}
+
+static Sts40Status App_ReadSerialForAddress(AppConsoleContext *app_context,
+                                            uint8_t address,
+                                            uint32_t *serial_number)
+{
+    uint8_t previous_address;
+    Sts40Status status;
+
+    if ((app_context == NULL) || (serial_number == NULL))
+    {
+        return STS40_STATUS_INVALID_ARG;
+    }
+
+    previous_address = app_context->sts40_device.config.i2c_address;
+    app_context->sts40_device.config.i2c_address = address;
+
+    status = Sts40_ReadSerial(&app_context->sts40_device, serial_number);
+
+    app_context->sts40_device.config.i2c_address = previous_address;
+    return status;
+}
+
+static void App_MakeTempBar(char *buffer, uint16_t buffer_size, float temp_c, uint8_t width, float temp_min, float temp_max)
+{
+    uint16_t pos = 0U;
+    uint8_t filled_chars = 0U;
+    uint8_t i = 0U;
+
+    if ((buffer == NULL) || (buffer_size == 0U) || (width == 0U))
+    {
+        return;
+    }
+
+    float temp_clamped = temp_c;
+    if (temp_clamped < temp_min) temp_clamped = temp_min;
+    if (temp_clamped > temp_max) temp_clamped = temp_max;
+
+    float ratio = (temp_clamped - temp_min) / (temp_max - temp_min);
+    filled_chars = (uint8_t)(ratio * (float)width);
+    if (filled_chars > width) filled_chars = width;
+
+    buffer[pos++] = '\t';
+    buffer[pos++] = '[';
+
+    for (i = 0U; (i < filled_chars) && ((pos + 3U) < buffer_size); ++i)
+    {
+        buffer[pos++] = (char)0xE2U;
+        buffer[pos++] = (char)0xA0U;
+        buffer[pos++] = (char)0xBFU;
+    }
+
+    for (; (i < width) && (pos < buffer_size); ++i)
+    {
+        buffer[pos++] = '-';
+    }
+
+    if (pos < buffer_size)
+    {
+        buffer[pos++] = ']';
+    }
+
+    buffer[pos] = '\0';
+}
 
 static int32_t App_Sts40_I2cWrite(void *context, uint8_t address, const uint8_t *data, uint16_t length)
 {
@@ -132,6 +357,49 @@ static bool App_ParseU32(const char *text, uint32_t *value)
     return true;
 }
 
+static bool App_ParseBarConfig(const char *input, uint32_t *min, uint32_t *width, uint32_t *max)
+{
+    char buffer[32];
+    const char *p = input;
+    uint16_t i = 0U;
+    uint16_t part = 0U;
+    uint32_t values[3] = {0};
+
+    if ((input == NULL) || (min == NULL) || (width == NULL) || (max == NULL))
+    {
+        return false;
+    }
+
+    while (*p != '\0' && part < 3U)
+    {
+        i = 0U;
+        while (*p != '\0' && *p != ',' && i < (sizeof(buffer) - 1U))
+        {
+            buffer[i++] = *p++;
+        }
+        buffer[i] = '\0';
+
+        if (!App_ParseU32(buffer, &values[part]))
+        {
+            return false;
+        }
+
+        part++;
+        if (*p == ',') p++;
+    }
+
+    if (part != 3U)
+    {
+        return false;
+    }
+
+    *min = values[0];
+    *width = values[1];
+    *max = values[2];
+
+    return true;
+}
+
 static void App_CmdHelp(Console *console, void *user_context, uint8_t argc, char **argv)
 {
     (void)user_context;
@@ -145,11 +413,12 @@ static void App_CmdHelp(Console *console, void *user_context, uint8_t argc, char
     Console_WriteLine(console, "  serial");
     Console_WriteLine(console, "  reset soft|gc");
     Console_WriteLine(console, "  config show");
-    Console_WriteLine(console, "  config addr <0x44|0x45|0x46>");
+    Console_WriteLine(console, "  config addr <0x44|0x45|0x46|all|list>");
     Console_WriteLine(console, "  config rep <low|medium|high>");
     Console_WriteLine(console, "  config crc <on|off>");
     Console_WriteLine(console, "  config retry <count> <delay_ms>");
-    Console_WriteLine(console, "  poll on <period_ms>");
+    Console_WriteLine(console, "  poll on <period_ms> [bar <min>,<width>,<max>]");
+    Console_WriteLine(console, "  poll bar <min>,<width>,<max>");
     Console_WriteLine(console, "  poll off");
     Console_WriteLine(console, "  led on|off|toggle");
 }
@@ -166,16 +435,43 @@ static void App_CmdStatus(Console *console, void *user_context, uint8_t argc, ch
         return;
     }
 
-    Console_Printf(console,
-                   "sensor=%s addr=0x%02X rep=%s crc=%s retry=%u/%lu poll=%s %lu ms\r\n",
-                   app_context->sts40_ready ? "ready" : "not-ready",
-                   app_context->sts40_device.config.i2c_address,
-                   App_RepeatabilityToString(app_context->sts40_device.config.default_repeatability),
-                   app_context->sts40_device.config.enable_crc_check ? "on" : "off",
-                   app_context->sts40_device.config.io_retry_count,
-                   (unsigned long)app_context->sts40_device.config.io_retry_delay_ms,
-                   app_context->poll_enabled ? "on" : "off",
-                   (unsigned long)app_context->poll_period_ms);
+    {
+        char address_list[32];
+        App_FormatAddressList(app_context, address_list, sizeof(address_list));
+
+        if (app_context->poll_bar_width > 0U)
+        {
+            int32_t bar_min_int = (int32_t)app_context->poll_bar_min;
+            int32_t bar_max_int = (int32_t)app_context->poll_bar_max;
+            Console_Printf(console,
+                           "sensor=%s addr=%s rep=%s crc=%s retry=%u/%lu poll=%s %lu ms bar=%u(%ld-%ld\u00B0C)\r\n",
+                           app_context->sts40_ready ? "ready" : "not-ready",
+                           address_list,
+                           App_RepeatabilityToString(app_context->sts40_device.config.default_repeatability),
+                           app_context->sts40_device.config.enable_crc_check ? "on" : "off",
+                           app_context->sts40_device.config.io_retry_count,
+                           (unsigned long)app_context->sts40_device.config.io_retry_delay_ms,
+                           app_context->poll_enabled ? "on" : "off",
+                           (unsigned long)app_context->poll_period_ms,
+                           (unsigned)app_context->poll_bar_width,
+                           bar_min_int,
+                           bar_max_int);
+        }
+        else
+        {
+            Console_Printf(console,
+                           "sensor=%s addr=%s rep=%s crc=%s retry=%u/%lu poll=%s %lu ms bar=%u\r\n",
+                           app_context->sts40_ready ? "ready" : "not-ready",
+                           address_list,
+                           App_RepeatabilityToString(app_context->sts40_device.config.default_repeatability),
+                           app_context->sts40_device.config.enable_crc_check ? "on" : "off",
+                           app_context->sts40_device.config.io_retry_count,
+                           (unsigned long)app_context->sts40_device.config.io_retry_delay_ms,
+                           app_context->poll_enabled ? "on" : "off",
+                           (unsigned long)app_context->poll_period_ms,
+                           (unsigned)app_context->poll_bar_width);
+        }
+    }
 }
 
 static void App_CmdRead(Console *console, void *user_context, uint8_t argc, char **argv)
@@ -196,54 +492,67 @@ static void App_CmdRead(Console *console, void *user_context, uint8_t argc, char
 
     if (strcmp(argv[1], "raw") == 0)
     {
-        uint16_t raw = 0U;
-        if (Sts40_MeasureRaw(&app_context->sts40_device,
-                             app_context->sts40_device.config.default_repeatability,
-                             &raw) == STS40_STATUS_OK)
+        uint8_t i;
+        for (i = 0U; i < app_context->sensor_count; ++i)
         {
-            Console_Printf(console, "raw=%u\r\n", raw);
-        }
-        else
-        {
-            Console_WriteLine(console, "ERR read raw");
+            uint16_t raw = 0U;
+            uint8_t address = app_context->sensor_addresses[i];
+
+            if (App_ReadRawForAddress(app_context, address, &raw) == STS40_STATUS_OK)
+            {
+                Console_Printf(console, "raw[0x%02X]=%u\r\n", address, raw);
+            }
+            else
+            {
+                Console_Printf(console, "ERR read raw addr=0x%02X\r\n", address);
+            }
         }
         return;
     }
 
     if (strcmp(argv[1], "c") == 0)
     {
-        float temperature_c = 0.0f;
-        if (Sts40_MeasureTemperatureC(&app_context->sts40_device,
-                                      app_context->sts40_device.config.default_repeatability,
-                                      &temperature_c) == STS40_STATUS_OK)
+        uint8_t i;
+        for (i = 0U; i < app_context->sensor_count; ++i)
         {
-            int32_t temp_int = (int32_t)temperature_c;
-            int32_t temp_frac = (int32_t)((temperature_c - temp_int) * 100.0f);
-            if (temp_frac < 0) temp_frac = -temp_frac;
-            Console_Printf(console, "temp_c=%ld.%02ld\r\n", temp_int, temp_frac);
-        }
-        else
-        {
-            Console_WriteLine(console, "ERR read c");
+            float temperature_c = 0.0f;
+            uint8_t address = app_context->sensor_addresses[i];
+
+            if (App_ReadTemperatureForAddress(app_context, address, &temperature_c) == STS40_STATUS_OK)
+            {
+                int32_t temp_int = (int32_t)temperature_c;
+                int32_t temp_frac = (int32_t)((temperature_c - temp_int) * 100.0f);
+                if (temp_frac < 0) temp_frac = -temp_frac;
+                Console_Printf(console, "temp_c[0x%02X]=%ld.%02ld\r\n", address, temp_int, temp_frac);
+            }
+            else
+            {
+                Console_Printf(console, "ERR read c addr=0x%02X\r\n", address);
+            }
         }
         return;
     }
 
     if (strcmp(argv[1], "f") == 0)
     {
-        float temperature_f = 0.0f;
-        if (Sts40_MeasureTemperatureF(&app_context->sts40_device,
-                                      app_context->sts40_device.config.default_repeatability,
-                                      &temperature_f) == STS40_STATUS_OK)
+        uint8_t i;
+        for (i = 0U; i < app_context->sensor_count; ++i)
         {
-            int32_t temp_int = (int32_t)temperature_f;
-            int32_t temp_frac = (int32_t)((temperature_f - temp_int) * 100.0f);
-            if (temp_frac < 0) temp_frac = -temp_frac;
-            Console_Printf(console, "temp_f=%ld.%02ld\r\n", temp_int, temp_frac);
-        }
-        else
-        {
-            Console_WriteLine(console, "ERR read f");
+            float temperature_c = 0.0f;
+            uint8_t address = app_context->sensor_addresses[i];
+
+            if (App_ReadTemperatureForAddress(app_context, address, &temperature_c) == STS40_STATUS_OK)
+            {
+                float temperature_f = (temperature_c * 9.0f / 5.0f) + 32.0f;
+                int32_t temp_int = (int32_t)temperature_f;
+                int32_t temp_frac = (int32_t)((temperature_f - temp_int) * 100.0f);
+                if (temp_frac < 0) temp_frac = -temp_frac;
+                Console_Printf(console, "temp_f[0x%02X]=%ld.%02ld\r\n", address, temp_int, temp_frac);
+            }
+            else
+            {
+                Console_Printf(console, "ERR read f addr=0x%02X\r\n", address);
+            }
         }
         return;
     }
@@ -269,7 +578,7 @@ static void App_CmdDebug(Console *console, void *user_context, uint8_t argc, cha
 
     command = 0xFDU; // HIGH repeatability measure
     
-    if (App_Sts40_I2cWrite(Board_I2cHandle(), 0x44, &command, 1U) != 0)
+    if (App_Sts40_I2cWrite(Board_I2cHandle(), app_context->sensor_addresses[0], &command, 1U) != 0)
     {
         Console_WriteLine(console, "ERR write failed");
         return;
@@ -277,7 +586,7 @@ static void App_CmdDebug(Console *console, void *user_context, uint8_t argc, cha
 
     app_context->sts40_device.io.delay_ms(app_context->sts40_device.io.context, 9U);
 
-    if (App_Sts40_I2cRead(Board_I2cHandle(), 0x44, data, 3U) != 0)
+    if (App_Sts40_I2cRead(Board_I2cHandle(), app_context->sensor_addresses[0], data, 3U) != 0)
     {
         Console_WriteLine(console, "ERR read failed");
         return;
@@ -309,13 +618,20 @@ static void App_CmdSerial(Console *console, void *user_context, uint8_t argc, ch
         return;
     }
 
-    if (Sts40_ReadSerial(&app_context->sts40_device, &serial_number) == STS40_STATUS_OK)
     {
-        Console_Printf(console, "serial=0x%08lX\r\n", (unsigned long)serial_number);
-    }
-    else
-    {
-        Console_WriteLine(console, "ERR serial");
+        uint8_t i;
+        for (i = 0U; i < app_context->sensor_count; ++i)
+        {
+            uint8_t address = app_context->sensor_addresses[i];
+            if (App_ReadSerialForAddress(app_context, address, &serial_number) == STS40_STATUS_OK)
+            {
+                Console_Printf(console, "serial[0x%02X]=0x%08lX\r\n", address, (unsigned long)serial_number);
+            }
+            else
+            {
+                Console_Printf(console, "ERR serial addr=0x%02X\r\n", address);
+            }
+        }
     }
 }
 
@@ -366,20 +682,18 @@ static void App_CmdConfig(Console *console, void *user_context, uint8_t argc, ch
 
     if ((argc >= 3U) && (strcmp(argv[1], "addr") == 0))
     {
-        uint32_t address = 0U;
-        if (!App_ParseU32(argv[2], &address))
+        uint8_t addresses[3] = {0U, 0U, 0U};
+        uint8_t count = 0U;
+
+        if (!App_ParseAddressList(argv[2], addresses, &count))
         {
-            Console_WriteLine(console, "ERR invalid address");
+            Console_WriteLine(console, "ERR address: 0x44|0x45|0x46|all|0x44,0x45...");
             return;
         }
 
-        if ((address != 0x44U) && (address != 0x45U) && (address != 0x46U))
-        {
-            Console_WriteLine(console, "ERR address must be 0x44/0x45/0x46");
-            return;
-        }
-
-        app_context->sts40_device.config.i2c_address = (uint8_t)address;
+        memcpy(app_context->sensor_addresses, addresses, sizeof(addresses));
+        app_context->sensor_count = count;
+        app_context->sts40_device.config.i2c_address = app_context->sensor_addresses[0];
         Console_WriteLine(console, "OK");
         return;
     }
@@ -447,13 +761,44 @@ static void App_CmdPoll(Console *console, void *user_context, uint8_t argc, char
 
     if (argc < 2U)
     {
-        Console_WriteLine(console, "Usage: poll on <period_ms>|off");
+        Console_WriteLine(console, "Usage: poll on <period_ms> [bar <min>,<width>,<max>]|off|bar <min>,<width>,<max>");
         return;
     }
 
     if (strcmp(argv[1], "off") == 0)
     {
         app_context->poll_enabled = false;
+        Console_WriteLine(console, "OK");
+        return;
+    }
+
+    if ((strcmp(argv[1], "bar") == 0) && (argc >= 3U))
+    {
+        uint32_t bar_min = 0U;
+        uint32_t bar_width = 0U;
+        uint32_t bar_max = 0U;
+
+        if (!App_ParseBarConfig(argv[2], &bar_min, &bar_width, &bar_max))
+        {
+            Console_WriteLine(console, "ERR bar format: <min>,<width>,<max>");
+            return;
+        }
+
+        if (bar_width == 0U || bar_width > 40U)
+        {
+            Console_WriteLine(console, "ERR bar width 1-40");
+            return;
+        }
+
+        if (bar_max <= bar_min)
+        {
+            Console_WriteLine(console, "ERR bar max > min");
+            return;
+        }
+
+        app_context->poll_bar_width = (uint8_t)bar_width;
+        app_context->poll_bar_min = (float)bar_min;
+        app_context->poll_bar_max = (float)bar_max;
         Console_WriteLine(console, "OK");
         return;
     }
@@ -470,11 +815,41 @@ static void App_CmdPoll(Console *console, void *user_context, uint8_t argc, char
         app_context->poll_period_ms = period_ms;
         app_context->poll_enabled = true;
         app_context->next_poll_at_ms = HAL_GetTick() + app_context->poll_period_ms;
+
+        if ((argc >= 5U) && (strcmp(argv[3], "bar") == 0))
+        {
+            uint32_t bar_min = 0U;
+            uint32_t bar_width = 0U;
+            uint32_t bar_max = 0U;
+
+            if (!App_ParseBarConfig(argv[4], &bar_min, &bar_width, &bar_max))
+            {
+                Console_WriteLine(console, "ERR bar format: <min>,<width>,<max>");
+                return;
+            }
+
+            if (bar_width == 0U || bar_width > 40U)
+            {
+                Console_WriteLine(console, "ERR bar width 1-40");
+                return;
+            }
+
+            if (bar_max <= bar_min)
+            {
+                Console_WriteLine(console, "ERR bar max > min");
+                return;
+            }
+
+            app_context->poll_bar_width = (uint8_t)bar_width;
+            app_context->poll_bar_min = (float)bar_min;
+            app_context->poll_bar_max = (float)bar_max;
+        }
+
         Console_WriteLine(console, "OK");
         return;
     }
 
-    Console_WriteLine(console, "Usage: poll on <period_ms>|off");
+    Console_WriteLine(console, "Usage: poll on <period_ms> [bar <min>,<width>,<max>]|off|bar <min>,<width>,<max>");
 }
 
 static void App_CmdLed(Console *console, void *user_context, uint8_t argc, char **argv)
@@ -554,6 +929,11 @@ void App_Blinky_Run(void)
 
     app_context.poll_enabled = true;
     app_context.poll_period_ms = BOARD_STS40_POLL_PERIOD_MS;
+    app_context.poll_bar_width = 0U;
+    app_context.poll_bar_min = 0.0f;
+    app_context.poll_bar_max = 50.0f;
+    app_context.sensor_addresses[0] = sts40_config.i2c_address;
+    app_context.sensor_count = 1U;
     app_context.blink_period_ms = BOARD_BLINK_TOGGLE_PERIOD_MS;
     now_ms = HAL_GetTick();
     app_context.next_poll_at_ms = now_ms + app_context.poll_period_ms;
@@ -575,16 +955,37 @@ void App_Blinky_Run(void)
         if (app_context.sts40_ready && app_context.poll_enabled &&
             ((int32_t)(now_ms - app_context.next_poll_at_ms) >= 0))
         {
-            float temperature_c = 0.0f;
+            uint8_t i;
 
-            if (Sts40_MeasureTemperatureC(&app_context.sts40_device,
-                                          app_context.sts40_device.config.default_repeatability,
-                                          &temperature_c) == STS40_STATUS_OK)
+            for (i = 0U; i < app_context.sensor_count; ++i)
             {
-                int32_t temp_int = (int32_t)temperature_c;
-                int32_t temp_frac = (int32_t)((temperature_c - temp_int) * 100.0f);
-                if (temp_frac < 0) temp_frac = -temp_frac;
-                Console_Printf(&console, "poll temp_c=%ld.%02ld\r\n", temp_int, temp_frac);
+                float temperature_c = 0.0f;
+                uint8_t address = app_context.sensor_addresses[i];
+
+                if (App_ReadTemperatureForAddress(&app_context, address, &temperature_c) == STS40_STATUS_OK)
+                {
+                    int32_t temp_int = (int32_t)temperature_c;
+                    int32_t temp_frac = (int32_t)((temperature_c - temp_int) * 100.0f);
+                    if (temp_frac < 0) temp_frac = -temp_frac;
+
+                    Console_Printf(&console, "poll addr=0x%02X temp_c=%ld.%02ld", address, temp_int, temp_frac);
+
+                    if (app_context.poll_bar_width > 0U)
+                    {
+                        char bar_buffer[128];
+                        App_MakeTempBar(bar_buffer, sizeof(bar_buffer), temperature_c,
+                                        app_context.poll_bar_width,
+                                        app_context.poll_bar_min,
+                                        app_context.poll_bar_max);
+                        Console_Printf(&console, "%s", bar_buffer);
+                    }
+
+                    Console_Printf(&console, "\r\n");
+                }
+                else
+                {
+                    Console_Printf(&console, "poll addr=0x%02X ERR\r\n", address);
+                }
             }
 
             app_context.next_poll_at_ms = now_ms + app_context.poll_period_ms;
