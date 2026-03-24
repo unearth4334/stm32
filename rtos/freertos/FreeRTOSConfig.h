@@ -2,7 +2,6 @@
 #define FREERTOS_CONFIG_H
 
 #include <stdint.h>
-#include "stm32f4xx.h"
 
 #define configUSE_PREEMPTION                    1
 #define configUSE_PORT_OPTIMISED_TASK_SELECTION 0
@@ -28,14 +27,14 @@
 #define configTIMER_QUEUE_LENGTH                8
 #define configTIMER_TASK_STACK_DEPTH            256
 
-#define configPRIO_BITS                         __NVIC_PRIO_BITS
+#define configPRIO_BITS                         4
 #define configLIBRARY_LOWEST_INTERRUPT_PRIORITY 15
 #define configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY 5
 
 #define configKERNEL_INTERRUPT_PRIORITY         ( configLIBRARY_LOWEST_INTERRUPT_PRIORITY << (8 - configPRIO_BITS) )
 #define configMAX_SYSCALL_INTERRUPT_PRIORITY    ( configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY << (8 - configPRIO_BITS) )
 
-#define configASSERT(x) if ((x) == 0) { __disable_irq(); for( ;; ) { } }
+#define configASSERT(x) if ((x) == 0) { taskDISABLE_INTERRUPTS(); for( ;; ) { } }
 
 #define INCLUDE_vTaskDelay                      1
 #define INCLUDE_xTaskGetSchedulerState          1
