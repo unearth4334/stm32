@@ -13,12 +13,14 @@ target_include_directories(${TARGET} PRIVATE
     ${CMAKE_SOURCE_DIR}/boards/blackpill_f411ce/include
     ${CMAKE_SOURCE_DIR}/platform/include
     ${CMAKE_SOURCE_DIR}/app
+    ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
 target_link_libraries(${TARGET}
     PRIVATE
         app
         services
+        middleware
         drivers
         platform_stm32f4_hal
         board_blackpill_f411ce

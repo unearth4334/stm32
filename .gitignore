@@ -1,1 +1,4 @@
 stm32.code-workspace
+third_party/cmsis/
+third_party/stm32cubef4/
+third_party/freertos/FreeRTOS-Kernel/

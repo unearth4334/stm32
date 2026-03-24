@@ -14,6 +14,8 @@
 ├─────────────────────────────────────┤
 │           services/                 │  High-level hardware abstractions
 ├─────────────────────────────────────┤
+│          middleware/                │  Runtime/middleware (FreeRTOS, etc.)
+├─────────────────────────────────────┤
 │            drivers/                 │  Hardware-agnostic drivers
 ├─────────────────────────────────────┤
 │  platform/include/platform/         │  Abstract platform API (headers)
@@ -33,6 +35,11 @@
 app → services → drivers → platform → board → vendor
 ```
 
+**RTOS extension (this exploration branch):**
+```
+app/services → middleware/rtos → platform → board → vendor
+```
+
 ---
 
 ## Repo Structure
@@ -41,6 +48,9 @@ app → services → drivers → platform → board → vendor
 .
 ├── app/                        Application layer
 ├── services/                   Service layer
+├── middleware/
+│   ├── include/middleware/     RTOS abstraction headers
+│   └── rtos/                   RTOS adapter implementation
 ├── drivers/
 │   └── led/                    LED driver (platform GPIO abstraction)
 ├── platform/
@@ -52,6 +62,7 @@ app → services → drivers → platform → board → vendor
 ├── boards/
 │   └── blackpill_f411ce/       WeAct STM32F411CE pin config + board_init
 ├── third_party/                Vendor code — see third_party/README.md
+│   └── freertos/               FreeRTOS kernel placeholder
 ├── linker/
 │   └── stm32f411.ld            Linker script (512 KB flash, 128 KB SRAM)
 ├── startup/                    startup_stm32f411xe.s — see startup/README.md
@@ -106,6 +117,18 @@ cmake -B build \
       -DCMAKE_BUILD_TYPE=Debug
 cmake --build build -j$(nproc)
 ```
+
+### 3b. Build with FreeRTOS enabled (exploration)
+
+```sh
+cmake -B build \
+      -DCMAKE_TOOLCHAIN_FILE=cmake/arm-none-eabi.cmake \
+      -DCMAKE_BUILD_TYPE=Debug \
+      -DENABLE_FREERTOS=ON
+cmake --build build -j$(nproc)
+```
+
+Populate `third_party/freertos/FreeRTOS-Kernel` first (see `third_party/freertos/README.md`).
 
 Output: `build/projects/blackpill_f411ce_blinky/firmware.elf` + `.bin` + `.hex`
 

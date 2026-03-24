@@ -10,6 +10,8 @@ project(stm32f4_firmware C ASM)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
+option(ENABLE_FREERTOS "Enable FreeRTOS kernel integration" OFF)
+
 # ── Common compile definitions ──────────────────────────────────────────────
 add_compile_definitions(
     USE_HAL_DRIVER
@@ -26,6 +28,7 @@ set(STM32CUBE_HAL_DIR     "${CMAKE_SOURCE_DIR}/third_party/stm32cubef4/Drivers/S
 add_subdirectory(platform)
 add_subdirectory(drivers)
 add_subdirectory(services)
+add_subdirectory(middleware)
 add_subdirectory(app)
 
 # ── Projects (each project defines its own executable) ─────────────────────

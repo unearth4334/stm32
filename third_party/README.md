@@ -12,11 +12,15 @@ third_party/
 │       └── ST/
 │           └── STM32F4xx/
 │               └── Include/  # stm32f411xe.h, system_stm32f4xx.h
-└── stm32cubef4/
-    └── Drivers/
-        └── STM32F4xx_HAL_Driver/
-            ├── Inc/
-            └── Src/
+├── stm32cubef4/
+│   └── Drivers/
+│       └── STM32F4xx_HAL_Driver/
+│           ├── Inc/
+│           └── Src/
+└── freertos/
+    └── FreeRTOS-Kernel/
+        ├── include/
+        └── portable/GCC/ARM_CM4F/
 ```
 
 ## How to populate
@@ -25,9 +29,12 @@ third_party/
 ```sh
 git submodule add https://github.com/STMicroelectronics/cmsis_core        third_party/cmsis
 git submodule add https://github.com/STMicroelectronics/stm32cubef4       third_party/stm32cubef4
+git submodule add https://github.com/FreeRTOS/FreeRTOS-Kernel             third_party/freertos/FreeRTOS-Kernel
 ```
 
 **Option B — Manual download**  
 Download STM32CubeF4 from [st.com](https://www.st.com/en/embedded-software/stm32cubef4.html) and copy the `Drivers/` tree here.
+
+For RTOS exploration, download FreeRTOS-Kernel from [github.com/FreeRTOS/FreeRTOS-Kernel](https://github.com/FreeRTOS/FreeRTOS-Kernel) into `third_party/freertos/FreeRTOS-Kernel/`.
 
 This directory is listed in `.gitignore` — do not commit vendor sources.
