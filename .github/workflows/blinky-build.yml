@@ -29,11 +29,21 @@ jobs:
         run: |
           rm -rf third_party/stm32cubef4
           git clone --depth 1 https://github.com/STMicroelectronics/stm32cubef4 third_party/stm32cubef4
+          git -C third_party/stm32cubef4 submodule update --init --depth 1 --recommend-shallow \
+            Drivers/CMSIS/Device/ST/STM32F4xx \
+            Drivers/STM32F4xx_HAL_Driver
 
       - name: Populate startup files
         run: |
-          cp third_party/stm32cubef4/Drivers/CMSIS/Device/ST/STM32F4xx/Source/Templates/gcc/startup_stm32f411xe.s startup/
-          cp third_party/stm32cubef4/Drivers/CMSIS/Device/ST/STM32F4xx/Source/Templates/system_stm32f4xx.c startup/
+          STARTUP_SRC=third_party/stm32cubef4/Drivers/CMSIS/Device/ST/STM32F4xx/Source/Templates/gcc/startup_stm32f411xe.s
+          SYSTEM_SRC=third_party/stm32cubef4/Drivers/CMSIS/Device/ST/STM32F4xx/Source/Templates/system_stm32f4xx.c
+
+          test -f "$STARTUP_SRC" || { echo "Missing startup source: $STARTUP_SRC"; find third_party/stm32cubef4 -name 'startup_stm32f411xe.s' | head -n 20; exit 1; }
+          test -f "$SYSTEM_SRC" || { echo "Missing system source: $SYSTEM_SRC"; find third_party/stm32cubef4 -name 'system_stm32f4xx.c' | head -n 20; exit 1; }
+
+          mkdir -p startup
+          cp "$STARTUP_SRC" startup/
+          cp "$SYSTEM_SRC" startup/
 
       - name: Configure
         run: |
