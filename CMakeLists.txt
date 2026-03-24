@@ -37,6 +37,7 @@ endif()
 
 # ── Sub-libraries ───────────────────────────────────────────────────────────
 add_subdirectory(platform)
+add_subdirectory(rtos)
 add_subdirectory(osal)
 add_subdirectory(drivers)
 add_subdirectory(services)

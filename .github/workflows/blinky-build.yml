@@ -51,6 +51,7 @@ jobs:
           cmake -S . -B build \
             -G Ninja \
             -DCMAKE_TOOLCHAIN_FILE=cmake/arm-none-eabi.cmake \
+            -DSTM32_USE_FREERTOS=ON \
             -DCMAKE_BUILD_TYPE=Release
 
       - name: Build firmware target

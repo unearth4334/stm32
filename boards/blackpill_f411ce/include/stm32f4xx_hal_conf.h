@@ -46,7 +46,11 @@ extern "C" {
 
 #define VDD_VALUE                    3300U
 #define TICK_INT_PRIORITY            0x0FU
+#if defined(USE_FREERTOS)
+#define USE_RTOS                     1U
+#else
 #define USE_RTOS                     0U
+#endif
 #define PREFETCH_ENABLE              1U
 #define INSTRUCTION_CACHE_ENABLE     1U
 #define DATA_CACHE_ENABLE            1U
