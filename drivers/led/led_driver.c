@@ -1,4 +1,4 @@
-#include "drivers/led/led_driver.h"
+#include "led_driver.h"
 #include "platform/gpio.h"
 #include "board.h"   /* BOARD_LED_PORT, BOARD_LED_PIN */
 

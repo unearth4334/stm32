@@ -1,5 +1,5 @@
-#include "services/led_service.h"
-#include "drivers/led/led_driver.h"
+#include "led_service.h"
+#include "led_driver.h"
 
 void led_service_init(void)
 {

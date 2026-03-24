@@ -1,5 +1,5 @@
 #include "app_blinky.h"
-#include "services/led_service.h"
+#include "led_service.h"
 
 /* Blink period defined at compile-time via app_config.h if present */
 #ifndef BLINK_PERIOD_MS
