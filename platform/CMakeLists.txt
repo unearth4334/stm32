@@ -3,6 +3,7 @@
 add_library(platform_stm32f4_hal STATIC
     src/stm32f4/hal/platform_gpio.c
     src/stm32f4/hal/platform_clock.c
+    src/stm32f4/hal/platform_i2c.c
     src/stm32f4/common/platform_init.c
 )
 
@@ -22,6 +23,7 @@ target_sources(platform_stm32f4_hal PRIVATE
     ${STM32CUBE_HAL_DIR}/Src/stm32f4xx_hal.c
     ${STM32CUBE_HAL_DIR}/Src/stm32f4xx_hal_cortex.c
     ${STM32CUBE_HAL_DIR}/Src/stm32f4xx_hal_gpio.c
+    ${STM32CUBE_HAL_DIR}/Src/stm32f4xx_hal_i2c.c
     ${STM32CUBE_HAL_DIR}/Src/stm32f4xx_hal_rcc.c
     ${STM32CUBE_HAL_DIR}/Src/stm32f4xx_hal_rcc_ex.c
     ${STM32CUBE_HAL_DIR}/Src/stm32f4xx_hal_pwr.c
