@@ -16,8 +16,8 @@ MEMORY
 
 _estack = ORIGIN(SRAM) + LENGTH(SRAM);   /* Top of SRAM for initial SP */
 
-_Min_Heap_Size  = 0x400;   /* 1 KB  */
-_Min_Stack_Size = 0x800;   /* 2 KB  */
+_Min_Heap_Size  = 0x2000;  /* 8 KB  */
+_Min_Stack_Size = 0x1000;  /* 4 KB  */
 
 SECTIONS
 {

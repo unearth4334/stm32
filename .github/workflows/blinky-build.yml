@@ -1,0 +1,71 @@
+name: build-blinky
+
+on:
+  push:
+    branches:
+      - main
+      - explore/**
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-firmware:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install toolchain and build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake \
+            ninja-build \
+            gcc-arm-none-eabi \
+            binutils-arm-none-eabi \
+            libnewlib-arm-none-eabi
+
+      - name: Populate STM32CubeF4 vendor sources
+        run: |
+          rm -rf third_party/stm32cubef4
+          git clone --depth 1 https://github.com/STMicroelectronics/stm32cubef4 third_party/stm32cubef4
+          git -C third_party/stm32cubef4 submodule update --init --depth 1 --recommend-shallow \
+            Drivers/CMSIS/Device/ST/STM32F4xx \
+            Drivers/STM32F4xx_HAL_Driver \
+            Middlewares/Third_Party/FreeRTOS
+
+      - name: Populate startup files
+        run: |
+          STARTUP_SRC=third_party/stm32cubef4/Drivers/CMSIS/Device/ST/STM32F4xx/Source/Templates/gcc/startup_stm32f411xe.s
+          SYSTEM_SRC=third_party/stm32cubef4/Drivers/CMSIS/Device/ST/STM32F4xx/Source/Templates/system_stm32f4xx.c
+
+          test -f "$STARTUP_SRC" || { echo "Missing startup source: $STARTUP_SRC"; find third_party/stm32cubef4 -name 'startup_stm32f411xe.s' | head -n 20; exit 1; }
+          test -f "$SYSTEM_SRC" || { echo "Missing system source: $SYSTEM_SRC"; find third_party/stm32cubef4 -name 'system_stm32f4xx.c' | head -n 20; exit 1; }
+
+          mkdir -p startup
+          cp "$STARTUP_SRC" startup/
+          cp "$SYSTEM_SRC" startup/
+
+      - name: Configure
+        run: |
+          cmake -S . -B build \
+            -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE=cmake/arm-none-eabi.cmake \
+            -DSTM32_USE_FREERTOS=ON \
+            -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build firmware target
+        run: cmake --build build --target firmware --parallel
+
+      - name: Upload build artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware-artifacts
+          path: |
+            build/projects/blackpill_f411ce_blinky/firmware.elf
+            build/projects/blackpill_f411ce_blinky/firmware.bin
+            build/projects/blackpill_f411ce_blinky/firmware.hex
+            build/projects/blackpill_f411ce_blinky/firmware.map
+          if-no-files-found: warn

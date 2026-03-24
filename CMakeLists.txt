@@ -10,20 +10,35 @@ project(stm32f4_firmware C ASM)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
+option(STM32_USE_FREERTOS "Enable FreeRTOS-oriented startup path" OFF)
+
 # ── Common compile definitions ──────────────────────────────────────────────
 add_compile_definitions(
     USE_HAL_DRIVER
     STM32F411xE
 )
 
+if(STM32_USE_FREERTOS)
+    add_compile_definitions(USE_FREERTOS=1)
+endif()
+
 # ── Common include paths shared across all libraries ──────────────────────
-# third_party directories are populated by the user (see third_party/README.md)
-set(CMSIS_INCLUDE_DIR     "${CMAKE_SOURCE_DIR}/third_party/cmsis/Include")
-set(CMSIS_DEVICE_DIR      "${CMAKE_SOURCE_DIR}/third_party/cmsis/Device/ST/STM32F4xx/Include")
-set(STM32CUBE_HAL_DIR     "${CMAKE_SOURCE_DIR}/third_party/stm32cubef4/Drivers/STM32F4xx_HAL_Driver")
+# Prefer a dedicated third_party/cmsis checkout when available.
+# Fallback to STM32CubeF4-provided CMSIS layout for CI and simple setups.
+set(STM32CUBE_HAL_DIR "${CMAKE_SOURCE_DIR}/third_party/stm32cubef4/Drivers/STM32F4xx_HAL_Driver")
+
+if(EXISTS "${CMAKE_SOURCE_DIR}/third_party/cmsis/Include")
+    set(CMSIS_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/third_party/cmsis/Include")
+    set(CMSIS_DEVICE_DIR  "${CMAKE_SOURCE_DIR}/third_party/cmsis/Device/ST/STM32F4xx/Include")
+else()
+    set(CMSIS_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/third_party/stm32cubef4/Drivers/CMSIS/Include")
+    set(CMSIS_DEVICE_DIR  "${CMAKE_SOURCE_DIR}/third_party/stm32cubef4/Drivers/CMSIS/Device/ST/STM32F4xx/Include")
+endif()
 
 # ── Sub-libraries ───────────────────────────────────────────────────────────
 add_subdirectory(platform)
+add_subdirectory(rtos)
+add_subdirectory(osal)
 add_subdirectory(drivers)
 add_subdirectory(services)
 add_subdirectory(app)
