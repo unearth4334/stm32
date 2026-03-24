@@ -8,7 +8,8 @@ void led_driver_init(void)
 {
     platform_gpio_init_output(BOARD_LED_PORT, BOARD_LED_PIN,
                               PLATFORM_GPIO_SPEED_LOW);
-    platform_gpio_write(BOARD_LED_PORT, BOARD_LED_PIN, 0U);
+    /* BlackPill user LED is active-low: drive high for OFF at init. */
+    platform_gpio_write(BOARD_LED_PORT, BOARD_LED_PIN, 1U);
     s_state = LED_DRIVER_STATE_OFF;
 }
 
