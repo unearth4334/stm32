@@ -42,7 +42,7 @@ USBD_StatusTypeDef USBD_LL_Init(USBD_HandleTypeDef *pdev)
     hpcd_USB_OTG_FS.Instance = USB_OTG_FS;
     hpcd_USB_OTG_FS.Init.dev_endpoints = 4;
     hpcd_USB_OTG_FS.Init.speed = PCD_SPEED_FULL;
-    hpcd_USB_OTG_FS.Init.ep0_mps = DEP0CTL_MPS_64;
+    hpcd_USB_OTG_FS.Init.ep0_mps = 0x40U;
     hpcd_USB_OTG_FS.Init.dma_enable = DISABLE;
     hpcd_USB_OTG_FS.Init.phy_itface = PCD_PHY_EMBEDDED;
     hpcd_USB_OTG_FS.Init.Sof_enable = DISABLE;
@@ -132,18 +132,18 @@ USBD_StatusTypeDef USBD_LL_SetUSBAddress(USBD_HandleTypeDef *pdev, uint8_t dev_a
 USBD_StatusTypeDef USBD_LL_Transmit(USBD_HandleTypeDef *pdev,
                                     uint8_t ep_addr,
                                     uint8_t *pbuf,
-                                    uint16_t size)
+                                    uint32_t size)
 {
-    HAL_PCD_EP_Transmit(pdev->pData, ep_addr, pbuf, size);
+    HAL_PCD_EP_Transmit(pdev->pData, ep_addr, pbuf, (uint16_t)size);
     return USBD_OK;
 }
 
 USBD_StatusTypeDef USBD_LL_PrepareReceive(USBD_HandleTypeDef *pdev,
                                           uint8_t ep_addr,
                                           uint8_t *pbuf,
-                                          uint16_t size)
+                                          uint32_t size)
 {
-    HAL_PCD_EP_Receive(pdev->pData, ep_addr, pbuf, size);
+    HAL_PCD_EP_Receive(pdev->pData, ep_addr, pbuf, (uint16_t)size);
     return USBD_OK;
 }
 
