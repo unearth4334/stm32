@@ -68,6 +68,7 @@ int ina232_service_init(platform_i2c_handle_t i2c,
 int ina232_service_read_field(const char *field, char *out, uint16_t out_len)
 {
     float fv;
+    long scaled;
     uint16_t reg;
     uint16_t mfr_id;
     uint16_t die_id;
@@ -108,7 +109,10 @@ int ina232_service_read_field(const char *field, char *out, uint16_t out_len)
             ina232_service_set_msg(out, out_len, "shunt_voltage read failed");
             return st;
         }
-        (void)snprintf(out, out_len, "shunt_voltage=%.3f mV", fv);
+        scaled = (long)(fv * 1000.0f);
+        (void)snprintf(out, out_len, "shunt_voltage=%ld.%03ld mV",
+                       scaled / 1000L,
+                       labs(scaled % 1000L));
         return INA232_OK;
     }
 
@@ -118,7 +122,10 @@ int ina232_service_read_field(const char *field, char *out, uint16_t out_len)
             ina232_service_set_msg(out, out_len, "bus_voltage read failed");
             return st;
         }
-        (void)snprintf(out, out_len, "bus_voltage=%.3f V", fv);
+        scaled = (long)(fv * 1000.0f);
+        (void)snprintf(out, out_len, "bus_voltage=%ld.%03ld V",
+                       scaled / 1000L,
+                       labs(scaled % 1000L));
         return INA232_OK;
     }
 
@@ -128,7 +135,10 @@ int ina232_service_read_field(const char *field, char *out, uint16_t out_len)
             ina232_service_set_msg(out, out_len, "current read failed");
             return st;
         }
-        (void)snprintf(out, out_len, "current=%.6f A", fv);
+        scaled = (long)(fv * 1000000.0f);
+        (void)snprintf(out, out_len, "current=%ld.%06ld A",
+                       scaled / 1000000L,
+                       labs(scaled % 1000000L));
         return INA232_OK;
     }
 
@@ -138,7 +148,10 @@ int ina232_service_read_field(const char *field, char *out, uint16_t out_len)
             ina232_service_set_msg(out, out_len, "power read failed");
             return st;
         }
-        (void)snprintf(out, out_len, "power=%.6f W", fv);
+        scaled = (long)(fv * 1000000.0f);
+        (void)snprintf(out, out_len, "power=%ld.%06ld W",
+                       scaled / 1000000L,
+                       labs(scaled % 1000000L));
         return INA232_OK;
     }
 
