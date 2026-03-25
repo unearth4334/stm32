@@ -22,7 +22,18 @@ typedef struct {
     uint8_t predictor_confident;
     uint8_t predictor_samples;
     uint8_t in_predicted_window;
+    uint32_t start_count;
+    uint32_t stop_count;
+    uint32_t repeated_start_count;
+    uint32_t scl_rise_count;
+    uint32_t scl_fall_count;
+    uint32_t sda_rise_count;
+    uint32_t sda_fall_count;
     uint32_t last_activity_ms;
+    uint32_t last_start_ms;
+    uint32_t last_stop_ms;
+    uint32_t last_scl_edge_ms;
+    uint32_t last_sda_edge_ms;
     uint32_t idle_guard_ms;
     uint32_t interval_ms;
     uint32_t jitter_ms;

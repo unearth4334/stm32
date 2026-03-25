@@ -126,7 +126,7 @@ static void console_command_help(void)
 static void console_command_i2cmon(void)
 {
     platform_i2c_bus_guard_status_t status;
-    char msg[160];
+    char msg[192];
 
     if (platform_i2c_primary_bus_guard_status(&status) != PLATFORM_I2C_OK) {
         console_write_text("error: i2c monitor unavailable\r\n");
@@ -135,13 +135,20 @@ static void console_command_i2cmon(void)
 
     (void)snprintf(msg,
                    sizeof(msg),
-                   "i2cmon ready=%u idle=%u active=%u window=%u conf=%u n=%u int=%lu jit=%lu span=%lu scl=%u sda=%u\r\n",
+                   "i2cmon ready=%u idle=%u active=%u window=%u conf=%u n=%u start=%lu stop=%lu rs=%lu sr=%lu sf=%lu dr=%lu df=%lu int=%lu jit=%lu span=%lu scl=%u sda=%u\r\n",
                    (unsigned int)status.ready,
                    (unsigned int)status.bus_idle,
                    (unsigned int)status.transaction_active,
                    (unsigned int)status.in_predicted_window,
                    (unsigned int)status.predictor_confident,
                    (unsigned int)status.predictor_samples,
+                   (unsigned long)status.start_count,
+                   (unsigned long)status.stop_count,
+                   (unsigned long)status.repeated_start_count,
+                   (unsigned long)status.scl_rise_count,
+                   (unsigned long)status.scl_fall_count,
+                   (unsigned long)status.sda_rise_count,
+                   (unsigned long)status.sda_fall_count,
                    (unsigned long)status.interval_ms,
                    (unsigned long)status.jitter_ms,
                    (unsigned long)status.transaction_span_ms,
