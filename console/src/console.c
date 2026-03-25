@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "ina232_service.h"
 #include "platform/uart.h"
 #include "platform/usb_cdc.h"
 #include "stm32f4xx_hal.h"
@@ -114,7 +115,79 @@ static void console_print_prompt(void)
 
 static void console_command_help(void)
 {
-    console_write_text("commands: help, version, uptime, log level <0-3>, fault last\r\n");
+    console_write_text("commands: help, version, uptime, log level <0-3>, fault last, ina232\r\n");
+    console_write_text("ina232 -r <field>\r\n");
+    console_write_text("ina232 -w <field> <value>\r\n");
+    console_write_text("fields: die_id, mfr_id, shunt_voltage, bus_voltage, current, power, config, calibration, alert_limit, mask_enable\r\n");
+}
+
+static void console_command_ina232_usage(void)
+{
+    console_write_text("usage: ina232 -r <field> | ina232 -w <field> <value>\r\n");
+}
+
+static void console_command_ina232(const char *args)
+{
+    char msg[128];
+    char argbuf[CONSOLE_LINE_MAX_LEN];
+    char *op;
+    char *field;
+    char *value;
+
+    if ((args == NULL) || (args[0] == '\0')) {
+        console_command_ina232_usage();
+        return;
+    }
+
+    (void)strncpy(argbuf, args, sizeof(argbuf) - 1U);
+    argbuf[sizeof(argbuf) - 1U] = '\0';
+
+    op = strtok(argbuf, " ");
+    field = strtok(NULL, " ");
+
+    if ((op == NULL) || (field == NULL)) {
+        console_command_ina232_usage();
+        return;
+    }
+
+    if (strcmp(op, "-r") == 0) {
+        if (strtok(NULL, " ") != NULL) {
+            console_command_ina232_usage();
+            return;
+        }
+
+        if (ina232_service_read_field(field, msg, sizeof(msg)) != INA232_OK) {
+            console_write_text("error: ");
+            console_write_text(msg);
+            console_write_text("\r\n");
+            return;
+        }
+
+        console_write_text(msg);
+        console_write_text("\r\n");
+        return;
+    }
+
+    if (strcmp(op, "-w") == 0) {
+        value = strtok(NULL, " ");
+        if ((value == NULL) || (strtok(NULL, " ") != NULL)) {
+            console_command_ina232_usage();
+            return;
+        }
+
+        if (ina232_service_write_field(field, value, msg, sizeof(msg)) != INA232_OK) {
+            console_write_text("error: ");
+            console_write_text(msg);
+            console_write_text("\r\n");
+            return;
+        }
+
+        console_write_text(msg);
+        console_write_text("\r\n");
+        return;
+    }
+
+    console_command_ina232_usage();
 }
 
 static void console_command_version(void)
@@ -193,6 +266,13 @@ static void console_process_command(const char *line)
         console_command_log_level(arg);
     } else if (strcmp(line, "fault last") == 0) {
         console_command_fault_last();
+    } else if (strncmp(line, "ina232", 6U) == 0) {
+        const char *arg = NULL;
+
+        if (line[6] == ' ') {
+            arg = &line[7];
+        }
+        console_command_ina232(arg);
     } else {
         console_write_text("unknown command\r\n");
     }

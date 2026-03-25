@@ -39,9 +39,9 @@ endif()
 add_subdirectory(platform)
 add_subdirectory(rtos)
 add_subdirectory(osal)
-add_subdirectory(console)
 add_subdirectory(drivers)
 add_subdirectory(services)
+add_subdirectory(console)
 add_subdirectory(app)
 
 # ── Projects (each project defines its own executable) ─────────────────────
