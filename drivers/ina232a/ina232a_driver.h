@@ -13,23 +13,12 @@
 
 #include "platform/i2c.h"
 
-/* ---------- I2C base/default address and A1/A0 map ----------------------- */
-#define INA232A_ADDR_GND_GND    0x40U
-#define INA232A_ADDR_GND_VS     0x41U
-#define INA232A_ADDR_GND_SDA    0x42U
-#define INA232A_ADDR_GND_SCL    0x43U
-#define INA232A_ADDR_VS_GND     0x44U
-#define INA232A_ADDR_VS_VS      0x45U
-#define INA232A_ADDR_VS_SDA     0x46U
-#define INA232A_ADDR_VS_SCL     0x47U
-#define INA232A_ADDR_SDA_GND    0x48U
-#define INA232A_ADDR_SDA_VS     0x49U
-#define INA232A_ADDR_SDA_SDA    0x4AU
-#define INA232A_ADDR_SDA_SCL    0x4BU
-#define INA232A_ADDR_SCL_GND    0x4CU
-#define INA232A_ADDR_SCL_VS     0x4DU
-#define INA232A_ADDR_SCL_SDA    0x4EU
-#define INA232A_ADDR_SCL_SCL    0x4FU
+/* ---------- I2C address: A0 pin strap options ---------------------------- */
+/* INA232A has one address pin (A0). Four connections give four addresses.   */
+#define INA232A_ADDR_A0_GND     0x40U
+#define INA232A_ADDR_A0_VS      0x41U
+#define INA232A_ADDR_A0_SDA     0x42U
+#define INA232A_ADDR_A0_SCL     0x43U
 
 /* ---------- Register map -------------------------------------------------- */
 #define INA232A_REG_CONFIG          0x00U
