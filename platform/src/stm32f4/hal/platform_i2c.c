@@ -58,6 +58,10 @@ static uint32_t s_i2c1_jitter_estimate_ms;
 static uint32_t s_i2c1_duration_estimate_ms;
 static uint8_t s_i2c1_predictor_confident;
 
+static void platform_i2c_predictor_push_interval(uint32_t interval_ms);
+static void platform_i2c_predictor_push_duration(uint32_t duration_ms);
+static void platform_i2c_predictor_refresh(void);
+
 static void platform_i2c_predictor_note_burst(uint32_t burst_start_ms, uint32_t burst_end_ms)
 {
     if (burst_end_ms <= burst_start_ms) {
