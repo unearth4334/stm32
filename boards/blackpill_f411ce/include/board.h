@@ -30,6 +30,15 @@
 #define BOARD_BTN_PIN           GPIO_PIN_0
 #define BOARD_BTN_GPIO_CLK_EN() __HAL_RCC_GPIOA_CLK_ENABLE()
 
+/* ---------- I2C1 (PB8=SCL, PB9=SDA, AF4) ----------------------------------- */
+#define BOARD_I2C1_INSTANCE     I2C1
+#define BOARD_I2C1_SCL_PORT     GPIOB
+#define BOARD_I2C1_SCL_PIN      GPIO_PIN_8
+#define BOARD_I2C1_SDA_PORT     GPIOB
+#define BOARD_I2C1_SDA_PIN      GPIO_PIN_9
+#define BOARD_I2C1_GPIO_CLK_EN() __HAL_RCC_GPIOB_CLK_ENABLE()
+#define BOARD_I2C1_CLK_EN()     __HAL_RCC_I2C1_CLK_ENABLE()
+
 /* ---------- UART1 (debug / ST-Link virtual COM on some boards) ------------ */
 #define BOARD_DEBUG_UART        USART1
 #define BOARD_DEBUG_UART_BAUD   115200U
