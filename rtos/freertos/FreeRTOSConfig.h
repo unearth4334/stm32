@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+void console_assert_failed(const char *expr, const char *file, uint32_t line);
+
 #define configUSE_PREEMPTION                    1
 #define configUSE_PORT_OPTIMISED_TASK_SELECTION 0
 #define configUSE_IDLE_HOOK                     0
@@ -34,7 +36,7 @@
 #define configKERNEL_INTERRUPT_PRIORITY         ( configLIBRARY_LOWEST_INTERRUPT_PRIORITY << (8 - configPRIO_BITS) )
 #define configMAX_SYSCALL_INTERRUPT_PRIORITY    ( configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY << (8 - configPRIO_BITS) )
 
-#define configASSERT(x) if ((x) == 0) { taskDISABLE_INTERRUPTS(); for( ;; ) { } }
+#define configASSERT(x) if ((x) == 0) { console_assert_failed(#x, __FILE__, __LINE__); taskDISABLE_INTERRUPTS(); for( ;; ) { } }
 
 #define INCLUDE_vTaskDelay                      1
 #define INCLUDE_xTaskGetSchedulerState          1

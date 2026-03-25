@@ -42,6 +42,12 @@
 /* ---------- UART1 (debug / ST-Link virtual COM on some boards) ------------ */
 #define BOARD_DEBUG_UART        USART1
 #define BOARD_DEBUG_UART_BAUD   115200U
+#define BOARD_DEBUG_UART_TX_PORT GPIOA
+#define BOARD_DEBUG_UART_TX_PIN  GPIO_PIN_9
+#define BOARD_DEBUG_UART_RX_PORT GPIOA
+#define BOARD_DEBUG_UART_RX_PIN  GPIO_PIN_10
+#define BOARD_DEBUG_UART_GPIO_CLK_EN() __HAL_RCC_GPIOA_CLK_ENABLE()
+#define BOARD_DEBUG_UART_CLK_EN() __HAL_RCC_USART1_CLK_ENABLE()
 
 /* ---------- Crystal / clock ---------------------------------------------- */
 #define BOARD_HSE_FREQ_HZ       25000000U

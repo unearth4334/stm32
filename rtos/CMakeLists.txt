@@ -26,6 +26,7 @@ if(STM32_USE_FREERTOS)
             ${FREERTOS_DIR}/portable/GCC/ARM_CM4F
             ${CMAKE_CURRENT_SOURCE_DIR}/freertos
         PRIVATE
+            ${CMAKE_SOURCE_DIR}/console/include
             ${CMSIS_INCLUDE_DIR}
             ${CMSIS_DEVICE_DIR}
             ${STM32CUBE_HAL_DIR}/Inc

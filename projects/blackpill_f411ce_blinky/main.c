@@ -18,6 +18,7 @@
 #include "app_blinky.h"
 #include "app_freertos.h"
 #include "osal/task.h"
+#include "console/console.h"
 
 /* Defined in platform/src/stm32f4/common/platform_init.c */
 extern void platform_init(void);
@@ -26,6 +27,7 @@ int main(void)
 {
     platform_init();   /* HAL_Init + SystemClock_Config              */
     board_init();      /* Enable GPIO clocks, configure board hw     */
+    console_init();
 
 #if defined(USE_FREERTOS)
     app_rtos_init();
@@ -35,6 +37,7 @@ int main(void)
 
     while (1)
     {
+        console_poll();
         app_blinky_run(); /* Toggle LED, delay BLINK_PERIOD_MS ms   */
     }
 #endif

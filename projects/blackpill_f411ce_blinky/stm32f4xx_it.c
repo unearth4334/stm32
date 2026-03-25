@@ -1,4 +1,5 @@
 #include "stm32f4xx_hal.h"
+#include "console/console.h"
 
 #if defined(USE_FREERTOS)
 #include "FreeRTOS.h"
@@ -34,4 +35,17 @@ void SysTick_Handler(void)
 #endif
 
     HAL_IncTick();
+}
+
+void HardFault_Handler(void)
+{
+    console_record_fault("hardfault", 0x48465254U, SCB->CFSR, SCB->HFSR);
+    console_log_panic("fault", "hardfault cfsr=0x%08lX hfsr=0x%08lX",
+                      (unsigned long)SCB->CFSR,
+                      (unsigned long)SCB->HFSR);
+
+    __disable_irq();
+    for (;;)
+    {
+    }
 }
