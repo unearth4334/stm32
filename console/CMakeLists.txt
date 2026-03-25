@@ -7,6 +7,11 @@ add_library(console STATIC
 target_include_directories(console
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
+    PRIVATE
+        ${CMSIS_INCLUDE_DIR}
+        ${CMSIS_DEVICE_DIR}
+        ${STM32CUBE_HAL_DIR}/Inc
+        ${STM32CUBE_HAL_DIR}/Inc/Legacy
 )
 
 target_link_libraries(console
