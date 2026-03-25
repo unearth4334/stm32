@@ -8,6 +8,7 @@ target_include_directories(console
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
     PRIVATE
+        ${CMAKE_SOURCE_DIR}/boards/blackpill_f411ce/include
         ${CMSIS_INCLUDE_DIR}
         ${CMSIS_DEVICE_DIR}
         ${STM32CUBE_HAL_DIR}/Inc
