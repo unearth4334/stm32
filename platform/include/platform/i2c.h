@@ -13,6 +13,24 @@
 
 typedef void *platform_i2c_handle_t;
 
+typedef struct {
+    uint8_t ready;
+    uint8_t bus_idle;
+    uint8_t scl_high;
+    uint8_t sda_high;
+    uint8_t transaction_active;
+    uint8_t predictor_confident;
+    uint8_t predictor_samples;
+    uint8_t in_predicted_window;
+    uint32_t last_activity_ms;
+    uint32_t idle_guard_ms;
+    uint32_t interval_ms;
+    uint32_t jitter_ms;
+    uint32_t transaction_span_ms;
+    uint32_t next_window_open_ms;
+    uint32_t next_window_close_ms;
+} platform_i2c_bus_guard_status_t;
+
 enum {
     PLATFORM_I2C_OK = 0,
     PLATFORM_I2C_ERR_INVALID_ARG = -1,
@@ -28,6 +46,11 @@ platform_i2c_handle_t platform_i2c_primary_handle(void);
  * @brief Initializes the board's primary I2C peripheral.
  */
 int platform_i2c_init_primary(platform_i2c_handle_t handle, uint32_t clock_hz);
+
+/**
+ * @brief Returns passive bus-guard state for the board's primary I2C bus.
+ */
+int platform_i2c_primary_bus_guard_status(platform_i2c_bus_guard_status_t *status);
 
 /**
  * @brief Write bytes to an 8-bit register address over I2C.

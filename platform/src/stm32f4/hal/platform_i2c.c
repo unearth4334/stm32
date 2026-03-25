@@ -5,13 +5,325 @@
 
 #include "platform/i2c.h"
 
+#include <limits.h>
 #include <stddef.h>
 
 #include "board.h"
 #include "stm32f4xx_hal.h"
 
+#define PLATFORM_I2C_PRIMARY_IDLE_GUARD_MS  3U
+#define PLATFORM_I2C_PREDICTOR_INTERVAL_HISTORY  8U
+#define PLATFORM_I2C_PREDICTOR_DURATION_HISTORY  8U
+#define PLATFORM_I2C_PREDICTOR_MIN_SAMPLES       3U
+#define PLATFORM_I2C_PREDICTOR_MAX_JITTER_MS     250U
+#define PLATFORM_I2C_PREDICTOR_MIN_JITTER_MS     10U
+#define PLATFORM_I2C_PREDICTOR_STALE_FACTOR      2U
+#define PLATFORM_I2C_PREDICTOR_PRE_WINDOW_MS     5U
+
 static I2C_HandleTypeDef s_i2c1;
 static uint8_t s_i2c1_ready;
+static uint8_t s_i2c1_guard_ready;
+static volatile uint8_t s_i2c1_lock;
+static volatile uint8_t s_i2c1_local_tx_active;
+static volatile uint32_t s_i2c1_last_activity_ms;
+static uint8_t s_i2c1_prev_scl_high;
+static uint8_t s_i2c1_prev_sda_high;
+static uint8_t s_i2c1_external_tx_active;
+static uint32_t s_i2c1_external_tx_start_ms;
+static uint32_t s_i2c1_last_external_start_ms;
+static uint32_t s_i2c1_last_external_stop_ms;
+static uint32_t s_i2c1_interval_history[PLATFORM_I2C_PREDICTOR_INTERVAL_HISTORY];
+static uint32_t s_i2c1_duration_history[PLATFORM_I2C_PREDICTOR_DURATION_HISTORY];
+static uint8_t s_i2c1_interval_index;
+static uint8_t s_i2c1_interval_count;
+static uint8_t s_i2c1_duration_index;
+static uint8_t s_i2c1_duration_count;
+static uint32_t s_i2c1_interval_estimate_ms;
+static uint32_t s_i2c1_jitter_estimate_ms;
+static uint32_t s_i2c1_duration_estimate_ms;
+static uint8_t s_i2c1_predictor_confident;
+
+static void platform_i2c_predictor_push_interval(uint32_t interval_ms)
+{
+    s_i2c1_interval_history[s_i2c1_interval_index] = interval_ms;
+    s_i2c1_interval_index = (uint8_t)((s_i2c1_interval_index + 1U) % PLATFORM_I2C_PREDICTOR_INTERVAL_HISTORY);
+    if (s_i2c1_interval_count < PLATFORM_I2C_PREDICTOR_INTERVAL_HISTORY) {
+        s_i2c1_interval_count++;
+    }
+}
+
+static void platform_i2c_predictor_push_duration(uint32_t duration_ms)
+{
+    s_i2c1_duration_history[s_i2c1_duration_index] = duration_ms;
+    s_i2c1_duration_index = (uint8_t)((s_i2c1_duration_index + 1U) % PLATFORM_I2C_PREDICTOR_DURATION_HISTORY);
+    if (s_i2c1_duration_count < PLATFORM_I2C_PREDICTOR_DURATION_HISTORY) {
+        s_i2c1_duration_count++;
+    }
+}
+
+static void platform_i2c_predictor_refresh(void)
+{
+    uint32_t interval_sum = 0U;
+    uint32_t duration_sum = 0U;
+    uint32_t min_interval = UINT32_MAX;
+    uint32_t max_interval = 0U;
+    uint32_t max_delta = 0U;
+    uint32_t estimate = 0U;
+    uint8_t i;
+
+    if (s_i2c1_interval_count == 0U) {
+        s_i2c1_interval_estimate_ms = 0U;
+        s_i2c1_jitter_estimate_ms = PLATFORM_I2C_PREDICTOR_MAX_JITTER_MS;
+        s_i2c1_predictor_confident = 0U;
+    } else {
+        for (i = 0U; i < s_i2c1_interval_count; ++i) {
+            uint32_t sample = s_i2c1_interval_history[i];
+
+            interval_sum += sample;
+            if (sample < min_interval) {
+                min_interval = sample;
+            }
+            if (sample > max_interval) {
+                max_interval = sample;
+            }
+        }
+
+        estimate = interval_sum / s_i2c1_interval_count;
+        for (i = 0U; i < s_i2c1_interval_count; ++i) {
+            uint32_t sample = s_i2c1_interval_history[i];
+            uint32_t delta = (sample > estimate) ? (sample - estimate) : (estimate - sample);
+
+            if (delta > max_delta) {
+                max_delta = delta;
+            }
+        }
+
+        if (max_delta < PLATFORM_I2C_PREDICTOR_MIN_JITTER_MS) {
+            max_delta = PLATFORM_I2C_PREDICTOR_MIN_JITTER_MS;
+        }
+        if (max_delta > PLATFORM_I2C_PREDICTOR_MAX_JITTER_MS) {
+            max_delta = PLATFORM_I2C_PREDICTOR_MAX_JITTER_MS;
+        }
+
+        s_i2c1_interval_estimate_ms = estimate;
+        s_i2c1_jitter_estimate_ms = max_delta;
+        s_i2c1_predictor_confident = ((s_i2c1_interval_count >= PLATFORM_I2C_PREDICTOR_MIN_SAMPLES) &&
+                                      ((max_interval - min_interval) <= (2U * max_delta))) ? 1U : 0U;
+    }
+
+    if (s_i2c1_duration_count == 0U) {
+        s_i2c1_duration_estimate_ms = PLATFORM_I2C_PRIMARY_IDLE_GUARD_MS;
+    } else {
+        for (i = 0U; i < s_i2c1_duration_count; ++i) {
+            duration_sum += s_i2c1_duration_history[i];
+        }
+        s_i2c1_duration_estimate_ms = duration_sum / s_i2c1_duration_count;
+        if (s_i2c1_duration_estimate_ms < PLATFORM_I2C_PRIMARY_IDLE_GUARD_MS) {
+            s_i2c1_duration_estimate_ms = PLATFORM_I2C_PRIMARY_IDLE_GUARD_MS;
+        }
+    }
+}
+
+static void platform_i2c_predictor_note_start(uint32_t now_ms)
+{
+    if (s_i2c1_last_external_start_ms != 0U) {
+        platform_i2c_predictor_push_interval(now_ms - s_i2c1_last_external_start_ms);
+        platform_i2c_predictor_refresh();
+    }
+
+    s_i2c1_last_external_start_ms = now_ms;
+    s_i2c1_external_tx_start_ms = now_ms;
+    s_i2c1_external_tx_active = 1U;
+}
+
+static void platform_i2c_predictor_note_stop(uint32_t now_ms)
+{
+    if (s_i2c1_external_tx_active != 0U) {
+        platform_i2c_predictor_push_duration(now_ms - s_i2c1_external_tx_start_ms);
+        platform_i2c_predictor_refresh();
+    }
+
+    s_i2c1_last_external_stop_ms = now_ms;
+    s_i2c1_external_tx_active = 0U;
+}
+
+static uint8_t platform_i2c_primary_predictor_stale(uint32_t now_ms)
+{
+    if ((s_i2c1_predictor_confident == 0U) || (s_i2c1_interval_estimate_ms == 0U) || (s_i2c1_last_external_start_ms == 0U)) {
+        return 1U;
+    }
+
+    return ((now_ms - s_i2c1_last_external_start_ms) >
+            ((PLATFORM_I2C_PREDICTOR_STALE_FACTOR * s_i2c1_interval_estimate_ms) + s_i2c1_jitter_estimate_ms)) ? 1U : 0U;
+}
+
+static uint8_t platform_i2c_primary_in_predicted_window(uint32_t now_ms,
+                                                         uint32_t *window_open_ms,
+                                                         uint32_t *window_close_ms)
+{
+    uint32_t predicted_start_ms;
+    uint32_t open_ms;
+    uint32_t close_ms;
+
+    if (window_open_ms != NULL) {
+        *window_open_ms = 0U;
+    }
+    if (window_close_ms != NULL) {
+        *window_close_ms = 0U;
+    }
+
+    if (platform_i2c_primary_predictor_stale(now_ms) != 0U) {
+        s_i2c1_predictor_confident = 0U;
+        return 0U;
+    }
+
+    predicted_start_ms = s_i2c1_last_external_start_ms + s_i2c1_interval_estimate_ms;
+    open_ms = predicted_start_ms - ((predicted_start_ms > (s_i2c1_jitter_estimate_ms + PLATFORM_I2C_PREDICTOR_PRE_WINDOW_MS)) ?
+                                    (s_i2c1_jitter_estimate_ms + PLATFORM_I2C_PREDICTOR_PRE_WINDOW_MS) : predicted_start_ms);
+    close_ms = predicted_start_ms + s_i2c1_duration_estimate_ms + s_i2c1_jitter_estimate_ms;
+
+    if (window_open_ms != NULL) {
+        *window_open_ms = open_ms;
+    }
+    if (window_close_ms != NULL) {
+        *window_close_ms = close_ms;
+    }
+
+    return ((now_ms >= open_ms) && (now_ms <= close_ms)) ? 1U : 0U;
+}
+
+static void platform_i2c_primary_monitor_lines(uint8_t *scl_high, uint8_t *sda_high)
+{
+    if (scl_high != NULL) {
+        *scl_high = (HAL_GPIO_ReadPin(BOARD_I2C1_MON_PORT, BOARD_I2C1_MON_SCL_PIN) == GPIO_PIN_SET) ? 1U : 0U;
+    }
+
+    if (sda_high != NULL) {
+        *sda_high = (HAL_GPIO_ReadPin(BOARD_I2C1_MON_PORT, BOARD_I2C1_MON_SDA_PIN) == GPIO_PIN_SET) ? 1U : 0U;
+    }
+}
+
+static uint8_t platform_i2c_primary_bus_idle_now(void)
+{
+    uint8_t scl_high;
+    uint8_t sda_high;
+
+    platform_i2c_primary_monitor_lines(&scl_high, &sda_high);
+
+    if ((scl_high == 0U) || (sda_high == 0U)) {
+        return 0U;
+    }
+
+    return ((HAL_GetTick() - s_i2c1_last_activity_ms) >= PLATFORM_I2C_PRIMARY_IDLE_GUARD_MS) ? 1U : 0U;
+}
+
+static void platform_i2c_primary_monitor_event(void)
+{
+    uint32_t now_ms = HAL_GetTick();
+    uint8_t scl_high;
+    uint8_t sda_high;
+    uint8_t start_detected;
+    uint8_t stop_detected;
+
+    platform_i2c_primary_monitor_lines(&scl_high, &sda_high);
+    s_i2c1_last_activity_ms = now_ms;
+
+    start_detected = ((s_i2c1_prev_sda_high != 0U) && (sda_high == 0U) && (scl_high != 0U)) ? 1U : 0U;
+    stop_detected = ((s_i2c1_prev_sda_high == 0U) && (sda_high != 0U) && (scl_high != 0U)) ? 1U : 0U;
+
+    if (s_i2c1_local_tx_active == 0U) {
+        if ((start_detected != 0U) && (s_i2c1_external_tx_active == 0U)) {
+            platform_i2c_predictor_note_start(now_ms);
+        } else if ((stop_detected != 0U) && (s_i2c1_external_tx_active != 0U)) {
+            platform_i2c_predictor_note_stop(now_ms);
+        }
+    }
+
+    s_i2c1_prev_scl_high = scl_high;
+    s_i2c1_prev_sda_high = sda_high;
+}
+
+static int platform_i2c_primary_lock_acquire(uint32_t timeout_ms)
+{
+    uint32_t start_ms = HAL_GetTick();
+
+    for (;;) {
+        uint32_t primask = __get_PRIMASK();
+
+        __disable_irq();
+        if (s_i2c1_lock == 0U) {
+            s_i2c1_lock = 1U;
+            if (primask == 0U) {
+                __enable_irq();
+            }
+            return PLATFORM_I2C_OK;
+        }
+
+        if (primask == 0U) {
+            __enable_irq();
+        }
+
+        if ((HAL_GetTick() - start_ms) >= timeout_ms) {
+            return PLATFORM_I2C_ERR_BUS;
+        }
+
+        HAL_Delay(1U);
+    }
+}
+
+static void platform_i2c_primary_lock_release(void)
+{
+    uint32_t primask = __get_PRIMASK();
+
+    __disable_irq();
+    s_i2c1_lock = 0U;
+    if (primask == 0U) {
+        __enable_irq();
+    }
+}
+
+static int platform_i2c_primary_wait_for_idle(uint32_t timeout_ms)
+{
+    uint32_t start_ms = HAL_GetTick();
+
+    if (s_i2c1_guard_ready == 0U) {
+        return PLATFORM_I2C_OK;
+    }
+
+    while ((platform_i2c_primary_bus_idle_now() == 0U) ||
+           (platform_i2c_primary_in_predicted_window(HAL_GetTick(), NULL, NULL) != 0U)) {
+        if ((HAL_GetTick() - start_ms) >= timeout_ms) {
+            return PLATFORM_I2C_ERR_BUS;
+        }
+
+        HAL_Delay(1U);
+    }
+
+    return PLATFORM_I2C_OK;
+}
+
+static int platform_i2c_primary_guard_init(void)
+{
+    GPIO_InitTypeDef gpio_cfg = {0};
+
+    BOARD_I2C1_MON_GPIO_CLK_EN();
+    __HAL_RCC_SYSCFG_CLK_ENABLE();
+
+    gpio_cfg.Pin = BOARD_I2C1_MON_SCL_PIN | BOARD_I2C1_MON_SDA_PIN;
+    gpio_cfg.Mode = GPIO_MODE_IT_RISING_FALLING;
+    gpio_cfg.Pull = GPIO_PULLUP;
+    gpio_cfg.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+    HAL_GPIO_Init(BOARD_I2C1_MON_PORT, &gpio_cfg);
+
+    s_i2c1_last_activity_ms = HAL_GetTick();
+    platform_i2c_primary_monitor_lines(&s_i2c1_prev_scl_high, &s_i2c1_prev_sda_high);
+    s_i2c1_guard_ready = 1U;
+
+    HAL_NVIC_SetPriority(BOARD_I2C1_MON_IRQn, BOARD_I2C1_MON_IRQ_PRIORITY, 0U);
+    HAL_NVIC_EnableIRQ(BOARD_I2C1_MON_IRQn);
+
+    return PLATFORM_I2C_OK;
+}
 
 platform_i2c_handle_t platform_i2c_primary_handle(void)
 {
@@ -51,7 +363,35 @@ int platform_i2c_init_primary(platform_i2c_handle_t handle, uint32_t clock_hz)
         return PLATFORM_I2C_ERR_BUS;
     }
 
+    (void)platform_i2c_primary_guard_init();
     s_i2c1_ready = 1U;
+    return PLATFORM_I2C_OK;
+}
+
+int platform_i2c_primary_bus_guard_status(platform_i2c_bus_guard_status_t *status)
+{
+    uint32_t now_ms;
+
+    if (status == NULL) {
+        return PLATFORM_I2C_ERR_INVALID_ARG;
+    }
+
+    now_ms = HAL_GetTick();
+    status->ready = s_i2c1_guard_ready;
+    status->idle_guard_ms = PLATFORM_I2C_PRIMARY_IDLE_GUARD_MS;
+    status->last_activity_ms = s_i2c1_last_activity_ms;
+    platform_i2c_primary_monitor_lines(&status->scl_high, &status->sda_high);
+    status->bus_idle = (s_i2c1_guard_ready != 0U) ? platform_i2c_primary_bus_idle_now() : 1U;
+    status->transaction_active = s_i2c1_external_tx_active;
+    status->predictor_confident = s_i2c1_predictor_confident;
+    status->predictor_samples = s_i2c1_interval_count;
+    status->interval_ms = s_i2c1_interval_estimate_ms;
+    status->jitter_ms = s_i2c1_jitter_estimate_ms;
+    status->transaction_span_ms = s_i2c1_duration_estimate_ms;
+    status->in_predicted_window = platform_i2c_primary_in_predicted_window(now_ms,
+                                                                           &status->next_window_open_ms,
+                                                                           &status->next_window_close_ms);
+
     return PLATFORM_I2C_OK;
 }
 
@@ -74,6 +414,20 @@ int platform_i2c_mem_write(platform_i2c_handle_t handle,
     }
 
     h = (I2C_HandleTypeDef *)handle;
+    if (handle == (platform_i2c_handle_t)&s_i2c1) {
+        if (platform_i2c_primary_lock_acquire(timeout_ms) != PLATFORM_I2C_OK) {
+            return PLATFORM_I2C_ERR_BUS;
+        }
+
+        if (platform_i2c_primary_wait_for_idle(timeout_ms) != PLATFORM_I2C_OK) {
+            platform_i2c_primary_lock_release();
+            return PLATFORM_I2C_ERR_BUS;
+        }
+
+        s_i2c1_local_tx_active = 1U;
+        s_i2c1_last_activity_ms = HAL_GetTick();
+    }
+
     st = HAL_I2C_Mem_Write(h,
                            (uint16_t)(dev_addr_7bit << 1),
                            reg,
@@ -81,6 +435,12 @@ int platform_i2c_mem_write(platform_i2c_handle_t handle,
                            (uint8_t *)data,
                            len,
                            timeout_ms);
+
+    if (handle == (platform_i2c_handle_t)&s_i2c1) {
+        s_i2c1_local_tx_active = 0U;
+        s_i2c1_last_activity_ms = HAL_GetTick();
+        platform_i2c_primary_lock_release();
+    }
 
     return (st == HAL_OK) ? PLATFORM_I2C_OK : PLATFORM_I2C_ERR_BUS;
 }
@@ -104,6 +464,20 @@ int platform_i2c_mem_read(platform_i2c_handle_t handle,
     }
 
     h = (I2C_HandleTypeDef *)handle;
+    if (handle == (platform_i2c_handle_t)&s_i2c1) {
+        if (platform_i2c_primary_lock_acquire(timeout_ms) != PLATFORM_I2C_OK) {
+            return PLATFORM_I2C_ERR_BUS;
+        }
+
+        if (platform_i2c_primary_wait_for_idle(timeout_ms) != PLATFORM_I2C_OK) {
+            platform_i2c_primary_lock_release();
+            return PLATFORM_I2C_ERR_BUS;
+        }
+
+        s_i2c1_local_tx_active = 1U;
+        s_i2c1_last_activity_ms = HAL_GetTick();
+    }
+
     st = HAL_I2C_Mem_Read(h,
                           (uint16_t)(dev_addr_7bit << 1),
                           reg,
@@ -112,5 +486,18 @@ int platform_i2c_mem_read(platform_i2c_handle_t handle,
                           len,
                           timeout_ms);
 
+    if (handle == (platform_i2c_handle_t)&s_i2c1) {
+        s_i2c1_local_tx_active = 0U;
+        s_i2c1_last_activity_ms = HAL_GetTick();
+        platform_i2c_primary_lock_release();
+    }
+
     return (st == HAL_OK) ? PLATFORM_I2C_OK : PLATFORM_I2C_ERR_BUS;
+}
+
+void HAL_GPIO_EXTI_Callback(uint16_t gpio_pin)
+{
+    if ((gpio_pin == BOARD_I2C1_MON_SCL_PIN) || (gpio_pin == BOARD_I2C1_MON_SDA_PIN)) {
+        platform_i2c_primary_monitor_event();
+    }
 }

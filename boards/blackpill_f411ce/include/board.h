@@ -39,6 +39,14 @@
 #define BOARD_I2C1_GPIO_CLK_EN() __HAL_RCC_GPIOB_CLK_ENABLE()
 #define BOARD_I2C1_CLK_EN()     __HAL_RCC_I2C1_CLK_ENABLE()
 
+/* ---------- Passive I2C1 bus monitor (PB6=SCL sense, PB7=SDA sense) -------- */
+#define BOARD_I2C1_MON_PORT          GPIOB
+#define BOARD_I2C1_MON_SCL_PIN       GPIO_PIN_6
+#define BOARD_I2C1_MON_SDA_PIN       GPIO_PIN_7
+#define BOARD_I2C1_MON_GPIO_CLK_EN() __HAL_RCC_GPIOB_CLK_ENABLE()
+#define BOARD_I2C1_MON_IRQn          EXTI9_5_IRQn
+#define BOARD_I2C1_MON_IRQ_PRIORITY  5U
+
 /* ---------- UART1 (debug / ST-Link virtual COM on some boards) ------------ */
 #define BOARD_DEBUG_UART        USART1
 #define BOARD_DEBUG_UART_BAUD   115200U

@@ -69,6 +69,7 @@ int ina232_service_read_field(const char *field, char *out, uint16_t out_len)
 {
     float fv;
     long scaled;
+    platform_i2c_bus_guard_status_t bus_guard;
     uint16_t reg;
     uint16_t mfr_id;
     uint16_t die_id;
@@ -100,6 +101,28 @@ int ina232_service_read_field(const char *field, char *out, uint16_t out_len)
             return st;
         }
         (void)snprintf(out, out_len, "mfr_id=0x%04X", mfr_id);
+        return INA232_OK;
+    }
+
+    if (strcmp(field, "bus_guard") == 0) {
+        st = platform_i2c_primary_bus_guard_status(&bus_guard);
+        if (st != PLATFORM_I2C_OK) {
+            ina232_service_set_msg(out, out_len, "bus_guard read failed");
+            return INA232_ERR_I2C;
+        }
+
+        (void)snprintf(out,
+                       out_len,
+                       "bus_guard=%s window=%s conf=%u n=%u int=%lu jit=%lu span=%lu scl=%u sda=%u",
+                       (bus_guard.bus_idle != 0U) ? "idle" : "busy",
+                       (bus_guard.in_predicted_window != 0U) ? "blocked" : "open",
+                       (unsigned int)bus_guard.predictor_confident,
+                       (unsigned int)bus_guard.predictor_samples,
+                       (unsigned long)bus_guard.interval_ms,
+                       (unsigned long)bus_guard.jitter_ms,
+                       (unsigned long)bus_guard.transaction_span_ms,
+                       (unsigned int)bus_guard.scl_high,
+                       (unsigned int)bus_guard.sda_high);
         return INA232_OK;
     }
 
@@ -231,6 +254,7 @@ int ina232_service_write_field(const char *field,
     } else if (strcmp(field, "mask_enable") == 0) {
         reg_addr = INA232_REG_MASK_ENABLE;
     } else if ((strcmp(field, "die_id") == 0) ||
+               (strcmp(field, "bus_guard") == 0) ||
                (strcmp(field, "mfr_id") == 0) ||
                (strcmp(field, "shunt_voltage") == 0) ||
                (strcmp(field, "bus_voltage") == 0) ||

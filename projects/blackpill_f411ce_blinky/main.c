@@ -27,18 +27,12 @@ extern void platform_init(void);
 
 int main(void)
 {
-    platform_i2c_handle_t i2c;
+    platform_i2c_handle_t i2c = NULL;
+    uint8_t ina232_ready = 0U;
+    uint32_t ina232_retry_ms = 0U;
 
     platform_init();   /* HAL_Init + SystemClock_Config              */
     board_init();      /* Enable GPIO clocks, configure board hw     */
-
-    i2c = platform_i2c_primary_handle();
-    if (platform_i2c_init_primary(i2c, 100000U) == PLATFORM_I2C_OK) {
-        (void)ina232_service_init(i2c,
-                                  INA232_SERVICE_DEFAULT_ADDR,
-                                  INA232_SERVICE_DEFAULT_SHUNT_OHMS,
-                                  INA232_SERVICE_DEFAULT_MAX_CURRENT_A);
-    }
 
     console_init();
 
@@ -46,11 +40,26 @@ int main(void)
     app_rtos_init();
     osal_scheduler_start();
 #else
+    i2c = platform_i2c_primary_handle();
     app_blinky_init(); /* Init services → drivers → platform GPIO   */
 
     while (1)
     {
         console_poll();
+
+        if ((ina232_ready == 0U) && ((HAL_GetTick() - ina232_retry_ms) >= 1000U)) {
+            ina232_retry_ms = HAL_GetTick();
+
+            if (platform_i2c_init_primary(i2c, 100000U) == PLATFORM_I2C_OK) {
+                if (ina232_service_init(i2c,
+                                        INA232_SERVICE_DEFAULT_ADDR,
+                                        INA232_SERVICE_DEFAULT_SHUNT_OHMS,
+                                        INA232_SERVICE_DEFAULT_MAX_CURRENT_A) == INA232_OK) {
+                    ina232_ready = 1U;
+                }
+            }
+        }
+
         app_blinky_run(); /* Toggle LED, delay BLINK_PERIOD_MS ms   */
     }
 #endif

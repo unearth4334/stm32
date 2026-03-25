@@ -1,4 +1,5 @@
 #include "stm32f4xx_hal.h"
+#include "board.h"
 #include "console/console.h"
 #include "platform/uart.h"
 #include "platform/usb_cdc.h"
@@ -47,6 +48,12 @@ void USART1_IRQHandler(void)
 void OTG_FS_IRQHandler(void)
 {
     platform_usb_cdc_irq_handler();
+}
+
+void EXTI9_5_IRQHandler(void)
+{
+    HAL_GPIO_EXTI_IRQHandler(BOARD_I2C1_MON_SCL_PIN);
+    HAL_GPIO_EXTI_IRQHandler(BOARD_I2C1_MON_SDA_PIN);
 }
 
 void HardFault_Handler(void)

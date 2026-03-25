@@ -118,7 +118,7 @@ static void console_command_help(void)
     console_write_text("commands: help, version, uptime, log level <0-3>, fault last, ina232\r\n");
     console_write_text("ina232 -r <field>\r\n");
     console_write_text("ina232 -w <field> <value>\r\n");
-    console_write_text("fields: die_id, mfr_id, shunt_voltage, bus_voltage, current, power, config, calibration, alert_limit, mask_enable\r\n");
+    console_write_text("fields: die_id, mfr_id, bus_guard, shunt_voltage, bus_voltage, current, power, config, calibration, alert_limit, mask_enable\r\n");
 }
 
 static void console_command_ina232_usage(void)
