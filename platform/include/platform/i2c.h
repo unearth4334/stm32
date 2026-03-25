@@ -19,9 +19,11 @@ typedef struct {
     uint8_t scl_high;
     uint8_t sda_high;
     uint8_t transaction_active;
+    uint8_t burst_active;
     uint8_t predictor_confident;
     uint8_t predictor_samples;
     uint8_t in_predicted_window;
+    uint32_t burst_count;
     uint32_t start_count;
     uint32_t stop_count;
     uint32_t repeated_start_count;
@@ -32,6 +34,8 @@ typedef struct {
     uint32_t last_activity_ms;
     uint32_t last_start_ms;
     uint32_t last_stop_ms;
+    uint32_t last_burst_start_ms;
+    uint32_t burst_gap_ms;
     uint32_t last_scl_edge_ms;
     uint32_t last_sda_edge_ms;
     uint32_t idle_guard_ms;

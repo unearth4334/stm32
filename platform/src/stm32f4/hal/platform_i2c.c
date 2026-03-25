@@ -19,6 +19,7 @@
 #define PLATFORM_I2C_PREDICTOR_MIN_JITTER_MS     10U
 #define PLATFORM_I2C_PREDICTOR_STALE_FACTOR      2U
 #define PLATFORM_I2C_PREDICTOR_PRE_WINDOW_MS     5U
+#define PLATFORM_I2C_PREDICTOR_BURST_GAP_MS      60U
 
 static I2C_HandleTypeDef s_i2c1;
 static uint8_t s_i2c1_ready;
@@ -29,6 +30,11 @@ static volatile uint32_t s_i2c1_last_activity_ms;
 static uint8_t s_i2c1_prev_scl_high;
 static uint8_t s_i2c1_prev_sda_high;
 static uint8_t s_i2c1_external_tx_active;
+static uint8_t s_i2c1_burst_active;
+static uint32_t s_i2c1_burst_count;
+static uint32_t s_i2c1_burst_start_ms;
+static uint32_t s_i2c1_burst_last_event_ms;
+static uint32_t s_i2c1_last_burst_start_ms;
 static uint32_t s_i2c1_start_count;
 static uint32_t s_i2c1_stop_count;
 static uint32_t s_i2c1_repeated_start_count;
@@ -51,6 +57,47 @@ static uint32_t s_i2c1_interval_estimate_ms;
 static uint32_t s_i2c1_jitter_estimate_ms;
 static uint32_t s_i2c1_duration_estimate_ms;
 static uint8_t s_i2c1_predictor_confident;
+
+static void platform_i2c_predictor_note_burst(uint32_t burst_start_ms, uint32_t burst_end_ms)
+{
+    if (burst_end_ms <= burst_start_ms) {
+        return;
+    }
+
+    if ((s_i2c1_last_burst_start_ms != 0U) && (burst_start_ms > s_i2c1_last_burst_start_ms)) {
+        platform_i2c_predictor_push_interval(burst_start_ms - s_i2c1_last_burst_start_ms);
+    }
+
+    platform_i2c_predictor_push_duration(burst_end_ms - burst_start_ms);
+    s_i2c1_last_burst_start_ms = burst_start_ms;
+    s_i2c1_burst_count++;
+    platform_i2c_predictor_refresh();
+}
+
+static void platform_i2c_predictor_maybe_close_burst(uint32_t now_ms)
+{
+    if ((s_i2c1_burst_active == 0U) || ((now_ms - s_i2c1_burst_last_event_ms) < PLATFORM_I2C_PREDICTOR_BURST_GAP_MS)) {
+        return;
+    }
+
+    platform_i2c_predictor_note_burst(s_i2c1_burst_start_ms, s_i2c1_burst_last_event_ms);
+    s_i2c1_burst_active = 0U;
+}
+
+static void platform_i2c_predictor_note_external_activity(uint32_t now_ms)
+{
+    if ((s_i2c1_burst_active != 0U) && ((now_ms - s_i2c1_burst_last_event_ms) >= PLATFORM_I2C_PREDICTOR_BURST_GAP_MS)) {
+        platform_i2c_predictor_note_burst(s_i2c1_burst_start_ms, s_i2c1_burst_last_event_ms);
+        s_i2c1_burst_active = 0U;
+    }
+
+    if (s_i2c1_burst_active == 0U) {
+        s_i2c1_burst_start_ms = now_ms;
+        s_i2c1_burst_active = 1U;
+    }
+
+    s_i2c1_burst_last_event_ms = now_ms;
+}
 
 static void platform_i2c_predictor_sort(uint32_t *values, uint8_t count)
 {
@@ -152,11 +199,6 @@ static void platform_i2c_predictor_refresh(void)
 
 static void platform_i2c_predictor_note_start(uint32_t now_ms)
 {
-    if (s_i2c1_last_external_start_ms != 0U) {
-        platform_i2c_predictor_push_interval(now_ms - s_i2c1_last_external_start_ms);
-        platform_i2c_predictor_refresh();
-    }
-
     s_i2c1_start_count++;
     s_i2c1_last_external_start_ms = now_ms;
     s_i2c1_external_tx_start_ms = now_ms;
@@ -165,11 +207,6 @@ static void platform_i2c_predictor_note_start(uint32_t now_ms)
 
 static void platform_i2c_predictor_note_stop(uint32_t now_ms)
 {
-    if (s_i2c1_external_tx_active != 0U) {
-        platform_i2c_predictor_push_duration(now_ms - s_i2c1_external_tx_start_ms);
-        platform_i2c_predictor_refresh();
-    }
-
     s_i2c1_stop_count++;
     s_i2c1_last_external_stop_ms = now_ms;
     s_i2c1_external_tx_active = 0U;
@@ -177,11 +214,11 @@ static void platform_i2c_predictor_note_stop(uint32_t now_ms)
 
 static uint8_t platform_i2c_primary_predictor_stale(uint32_t now_ms)
 {
-    if ((s_i2c1_predictor_confident == 0U) || (s_i2c1_interval_estimate_ms == 0U) || (s_i2c1_last_external_start_ms == 0U)) {
+    if ((s_i2c1_predictor_confident == 0U) || (s_i2c1_interval_estimate_ms == 0U) || (s_i2c1_last_burst_start_ms == 0U)) {
         return 1U;
     }
 
-    return ((now_ms - s_i2c1_last_external_start_ms) >
+    return ((now_ms - s_i2c1_last_burst_start_ms) >
             ((PLATFORM_I2C_PREDICTOR_STALE_FACTOR * s_i2c1_interval_estimate_ms) + s_i2c1_jitter_estimate_ms)) ? 1U : 0U;
 }
 
@@ -205,7 +242,7 @@ static uint8_t platform_i2c_primary_in_predicted_window(uint32_t now_ms,
         return 0U;
     }
 
-    predicted_start_ms = s_i2c1_last_external_start_ms + s_i2c1_interval_estimate_ms;
+    predicted_start_ms = s_i2c1_last_burst_start_ms + s_i2c1_interval_estimate_ms;
     open_ms = predicted_start_ms - ((predicted_start_ms > (s_i2c1_jitter_estimate_ms + PLATFORM_I2C_PREDICTOR_PRE_WINDOW_MS)) ?
                                     (s_i2c1_jitter_estimate_ms + PLATFORM_I2C_PREDICTOR_PRE_WINDOW_MS) : predicted_start_ms);
     close_ms = predicted_start_ms + s_i2c1_duration_estimate_ms + s_i2c1_jitter_estimate_ms;
@@ -255,6 +292,7 @@ static void platform_i2c_primary_monitor_event(void)
 
     platform_i2c_primary_monitor_lines(&scl_high, &sda_high);
     s_i2c1_last_activity_ms = now_ms;
+    platform_i2c_predictor_maybe_close_burst(now_ms);
 
     if ((s_i2c1_prev_scl_high == 0U) && (scl_high != 0U)) {
         s_i2c1_scl_rise_count++;
@@ -277,10 +315,13 @@ static void platform_i2c_primary_monitor_event(void)
 
     if (s_i2c1_local_tx_active == 0U) {
         if ((start_detected != 0U) && (s_i2c1_external_tx_active == 0U)) {
+            platform_i2c_predictor_note_external_activity(now_ms);
             platform_i2c_predictor_note_start(now_ms);
         } else if ((start_detected != 0U) && (s_i2c1_external_tx_active != 0U)) {
+            platform_i2c_predictor_note_external_activity(now_ms);
             s_i2c1_repeated_start_count++;
         } else if ((stop_detected != 0U) && (s_i2c1_external_tx_active != 0U)) {
+            platform_i2c_predictor_note_external_activity(now_ms);
             platform_i2c_predictor_note_stop(now_ms);
         }
     }
@@ -438,18 +479,23 @@ int platform_i2c_primary_bus_guard_status(platform_i2c_bus_guard_status_t *statu
     }
 
     now_ms = HAL_GetTick();
+    platform_i2c_predictor_maybe_close_burst(now_ms);
     status->ready = s_i2c1_guard_ready;
     status->idle_guard_ms = PLATFORM_I2C_PRIMARY_IDLE_GUARD_MS;
     status->last_activity_ms = s_i2c1_last_activity_ms;
     status->last_start_ms = s_i2c1_last_external_start_ms;
     status->last_stop_ms = s_i2c1_last_external_stop_ms;
+    status->last_burst_start_ms = s_i2c1_last_burst_start_ms;
+    status->burst_gap_ms = PLATFORM_I2C_PREDICTOR_BURST_GAP_MS;
     status->last_scl_edge_ms = s_i2c1_last_scl_edge_ms;
     status->last_sda_edge_ms = s_i2c1_last_sda_edge_ms;
     platform_i2c_primary_monitor_lines(&status->scl_high, &status->sda_high);
     status->bus_idle = (s_i2c1_guard_ready != 0U) ? platform_i2c_primary_bus_idle_now() : 1U;
     status->transaction_active = s_i2c1_external_tx_active;
+    status->burst_active = s_i2c1_burst_active;
     status->predictor_confident = s_i2c1_predictor_confident;
     status->predictor_samples = s_i2c1_interval_count;
+    status->burst_count = s_i2c1_burst_count;
     status->start_count = s_i2c1_start_count;
     status->stop_count = s_i2c1_stop_count;
     status->repeated_start_count = s_i2c1_repeated_start_count;
