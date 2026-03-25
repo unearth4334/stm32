@@ -52,9 +52,19 @@
 /* Must be >= configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY to call FreeRTOS ISR APIs */
 #define BOARD_DEBUG_UART_IRQ_PRIORITY    5U
 
+/* ---------- USB FS device (PA11=DM, PA12=DP, AF10) ------------------------ */
+#define BOARD_USB_DM_PORT        GPIOA
+#define BOARD_USB_DM_PIN         GPIO_PIN_11
+#define BOARD_USB_DP_PORT        GPIOA
+#define BOARD_USB_DP_PIN         GPIO_PIN_12
+#define BOARD_USB_GPIO_CLK_EN()  __HAL_RCC_GPIOA_CLK_ENABLE()
+#define BOARD_USB_CLK_EN()       __HAL_RCC_USB_OTG_FS_CLK_ENABLE()
+#define BOARD_USB_IRQn           OTG_FS_IRQn
+#define BOARD_USB_IRQ_PRIORITY   6U
+
 /* ---------- Crystal / clock ---------------------------------------------- */
 #define BOARD_HSE_FREQ_HZ       25000000U
-#define BOARD_SYSCLK_FREQ_HZ   100000000U
+#define BOARD_SYSCLK_FREQ_HZ    96000000U
 
 /**
  * @brief Enable GPIO clocks and initialise board-level peripherals.

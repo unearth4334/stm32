@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "platform/uart.h"
+#include "platform/usb_cdc.h"
 #include "stm32f4xx_hal.h"
 
 #if defined(USE_FREERTOS)
@@ -48,10 +49,20 @@ static void console_write_text(const char *text)
         return;
     }
 
-    if ((!s_console_ready) ||
-        (platform_uart_write(s_uart, (const uint8_t *)text, (uint16_t)strlen(text), 10U) != PLATFORM_UART_OK)) {
+    if (!s_console_ready) {
+        s_drop_count++;
+        return;
+    }
+
+#if defined(USE_FREERTOS)
+    if (platform_usb_cdc_write((const uint8_t *)text, (uint16_t)strlen(text), 20U) != 0) {
         s_drop_count++;
     }
+#else
+    if (platform_uart_write(s_uart, (const uint8_t *)text, (uint16_t)strlen(text), 10U) != PLATFORM_UART_OK) {
+        s_drop_count++;
+    }
+#endif
 }
 
 static const char *console_level_name(console_log_level_t level)
@@ -193,18 +204,23 @@ void console_init(void)
         return;
     }
 
+#if defined(USE_FREERTOS)
+    if (platform_usb_cdc_init() != 0) {
+        return;
+    }
+#else
     s_uart = platform_uart_debug_handle();
     if (platform_uart_init(s_uart, CONSOLE_UART_BAUDRATE) != PLATFORM_UART_OK) {
         return;
     }
+#endif
 
 #if defined(USE_FREERTOS)
     s_rx_stream = xStreamBufferCreate(CONSOLE_RX_STREAM_SIZE, 1U);
     if (s_rx_stream == NULL) {
         return;
     }
-    (void)platform_uart_set_rx_callback(s_uart, console_rx_irq_cb, NULL);
-    (void)platform_uart_start_rx_it(s_uart);
+    (void)platform_usb_cdc_set_rx_callback(console_rx_irq_cb, NULL);
 #endif
 
     s_console_ready = 1U;
@@ -242,7 +258,11 @@ static void console_process_char(uint8_t ch)
 
     if ((ch >= 0x20U) && (ch <= 0x7EU) && (s_line_len < (CONSOLE_LINE_MAX_LEN - 1U))) {
         s_line_buf[s_line_len++] = (char)ch;
+#if defined(USE_FREERTOS)
+        (void)platform_usb_cdc_write(&ch, 1U, 20U);
+#else
         (void)platform_uart_write(s_uart, &ch, 1U, 10U);
+#endif
     }
 }
 

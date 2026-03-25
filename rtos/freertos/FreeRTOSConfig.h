@@ -9,7 +9,7 @@ void console_assert_failed(const char *expr, const char *file, uint32_t line);
 #define configUSE_PORT_OPTIMISED_TASK_SELECTION 0
 #define configUSE_IDLE_HOOK                     0
 #define configUSE_TICK_HOOK                     0
-#define configCPU_CLOCK_HZ                      ((uint32_t)100000000)
+#define configCPU_CLOCK_HZ                      ((uint32_t)96000000)
 #define configTICK_RATE_HZ                      ((TickType_t)1000)
 #define configMAX_PRIORITIES                    8
 #define configMINIMAL_STACK_SIZE                ((uint16_t)128)

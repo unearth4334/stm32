@@ -1,6 +1,7 @@
 #include "stm32f4xx_hal.h"
 #include "console/console.h"
 #include "platform/uart.h"
+#include "platform/usb_cdc.h"
 
 #if defined(USE_FREERTOS)
 #include "FreeRTOS.h"
@@ -41,6 +42,11 @@ void SysTick_Handler(void)
 void USART1_IRQHandler(void)
 {
     platform_uart_irq_handler(platform_uart_debug_handle());
+}
+
+void OTG_FS_IRQHandler(void)
+{
+    platform_usb_cdc_irq_handler();
 }
 
 void HardFault_Handler(void)

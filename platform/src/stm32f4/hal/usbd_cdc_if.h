@@ -1,0 +1,12 @@
+#ifndef USBD_CDC_IF_H
+#define USBD_CDC_IF_H
+
+#include <stdint.h>
+
+#include "usbd_cdc.h"
+
+extern USBD_CDC_ItfTypeDef USBD_Interface_fops_FS;
+
+uint8_t CDC_Transmit_FS(uint8_t *buf, uint16_t len);
+
+#endif /* USBD_CDC_IF_H */

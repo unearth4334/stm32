@@ -15,6 +15,7 @@ extern "C" {
 #define HAL_I2C_MODULE_ENABLED
 #define HAL_DMA_MODULE_ENABLED
 #define HAL_UART_MODULE_ENABLED
+#define HAL_PCD_MODULE_ENABLED
 #define HAL_RCC_MODULE_ENABLED
 #define HAL_PWR_MODULE_ENABLED
 
@@ -78,6 +79,10 @@ extern "C" {
 
 #ifdef HAL_UART_MODULE_ENABLED
 #include "stm32f4xx_hal_uart.h"
+#endif
+
+#ifdef HAL_PCD_MODULE_ENABLED
+#include "stm32f4xx_hal_pcd.h"
 #endif
 
 #ifdef HAL_CORTEX_MODULE_ENABLED
