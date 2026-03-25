@@ -5,13 +5,13 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "board.h"
 #include "platform/uart.h"
 #include "stm32f4xx_hal.h"
 
 #define CONSOLE_LINE_MAX_LEN 96U
 #define CONSOLE_MSG_MAX_LEN 192U
 #define CONSOLE_FAULT_SIGNATURE 0x43464C54u /* CFLT */
+#define CONSOLE_UART_BAUDRATE 115200U
 
 static uint8_t s_console_ready;
 static console_log_level_t s_log_level = CONSOLE_LOG_INFO;
@@ -174,7 +174,7 @@ void console_init(void)
     }
 
     s_uart = platform_uart_debug_handle();
-    if (platform_uart_init(s_uart, BOARD_DEBUG_UART_BAUD) != PLATFORM_UART_OK) {
+    if (platform_uart_init(s_uart, CONSOLE_UART_BAUDRATE) != PLATFORM_UART_OK) {
         return;
     }
 
