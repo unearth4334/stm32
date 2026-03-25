@@ -2,14 +2,15 @@
  * @file platform_init.c
  * @brief Low-level platform initialisation for STM32F411CE.
  *
- * Enables FPU, configures SysTick, and sets up the system clock to 100 MHz
+ * Enables FPU, configures SysTick, and sets up the system clock to 96 MHz
  * using the 25 MHz HSE on the WeAct BlackPill.
  *
  * Clock tree:
- *   HSE  25 MHz → PLL (M=25, N=200, P=2) → SYSCLK 100 MHz
- *   AHB  /1  → 100 MHz  (HCLK)
- *   APB1 /2  →  50 MHz
- *   APB2 /1  → 100 MHz
+ *   HSE  25 MHz → PLL (M=25, N=192, P=2) → SYSCLK 96 MHz
+ *   AHB  /1  → 96 MHz  (HCLK)
+ *   APB1 /2  → 48 MHz
+ *   APB2 /1  → 96 MHz
+ *   USB  /4  → 48 MHz
  */
 
 #include "stm32f4xx_hal.h"
@@ -29,7 +30,7 @@ void SystemClock_Config(void)
     osc.PLL.PLLState   = RCC_PLL_ON;
     osc.PLL.PLLSource  = RCC_PLLSOURCE_HSE;
     osc.PLL.PLLM       = 25;
-    osc.PLL.PLLN       = 200;
+    osc.PLL.PLLN       = 192;
     osc.PLL.PLLP       = RCC_PLLP_DIV2;
     osc.PLL.PLLQ       = 4;
     HAL_RCC_OscConfig(&osc);

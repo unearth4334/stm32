@@ -33,7 +33,8 @@ jobs:
           git -C third_party/stm32cubef4 submodule update --init --depth 1 --recommend-shallow \
             Drivers/CMSIS/Device/ST/STM32F4xx \
             Drivers/STM32F4xx_HAL_Driver \
-            Middlewares/Third_Party/FreeRTOS
+            Middlewares/Third_Party/FreeRTOS \
+            Middlewares/ST/STM32_USB_Device_Library
 
       - name: Populate startup files
         run: |
