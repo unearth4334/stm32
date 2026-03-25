@@ -2,7 +2,7 @@
 
 add_library(drivers STATIC
     led/led_driver.c
-    ina232a/ina232a_driver.c
+    ina232/ina232_driver.c
 )
 
 target_include_directories(drivers
