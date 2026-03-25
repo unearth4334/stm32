@@ -36,6 +36,7 @@ target_sources(platform_stm32f4_hal PRIVATE
     ${STM32CUBE_HAL_DIR}/Src/stm32f4xx_hal_uart.c
     ${STM32CUBE_HAL_DIR}/Src/stm32f4xx_hal_pcd.c
     ${STM32CUBE_HAL_DIR}/Src/stm32f4xx_hal_pcd_ex.c
+    ${STM32CUBE_HAL_DIR}/Src/stm32f4xx_ll_usb.c
     ${STM32CUBE_HAL_DIR}/Src/stm32f4xx_hal_rcc.c
     ${STM32CUBE_HAL_DIR}/Src/stm32f4xx_hal_rcc_ex.c
     ${STM32CUBE_HAL_DIR}/Src/stm32f4xx_hal_pwr.c
