@@ -48,6 +48,11 @@ platform_i2c_handle_t platform_i2c_primary_handle(void);
 int platform_i2c_init_primary(platform_i2c_handle_t handle, uint32_t clock_hz);
 
 /**
+ * @brief Initializes the passive PB6/PB7 monitor for the primary I2C bus.
+ */
+int platform_i2c_primary_monitor_init(void);
+
+/**
  * @brief Returns passive bus-guard state for the board's primary I2C bus.
  */
 int platform_i2c_primary_bus_guard_status(platform_i2c_bus_guard_status_t *status);

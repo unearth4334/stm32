@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "ina232_service.h"
+#include "platform/i2c.h"
 #include "platform/uart.h"
 #include "platform/usb_cdc.h"
 #include "stm32f4xx_hal.h"
@@ -115,10 +116,38 @@ static void console_print_prompt(void)
 
 static void console_command_help(void)
 {
-    console_write_text("commands: help, version, uptime, log level <0-3>, fault last, ina232\r\n");
+    console_write_text("commands: help, version, uptime, log level <0-3>, fault last, i2cmon, ina232\r\n");
+    console_write_text("i2cmon\r\n");
     console_write_text("ina232 -r <field>\r\n");
     console_write_text("ina232 -w <field> <value>\r\n");
     console_write_text("fields: die_id, mfr_id, bus_guard, shunt_voltage, bus_voltage, current, power, config, calibration, alert_limit, mask_enable\r\n");
+}
+
+static void console_command_i2cmon(void)
+{
+    platform_i2c_bus_guard_status_t status;
+    char msg[160];
+
+    if (platform_i2c_primary_bus_guard_status(&status) != PLATFORM_I2C_OK) {
+        console_write_text("error: i2c monitor unavailable\r\n");
+        return;
+    }
+
+    (void)snprintf(msg,
+                   sizeof(msg),
+                   "i2cmon ready=%u idle=%u active=%u window=%u conf=%u n=%u int=%lu jit=%lu span=%lu scl=%u sda=%u\r\n",
+                   (unsigned int)status.ready,
+                   (unsigned int)status.bus_idle,
+                   (unsigned int)status.transaction_active,
+                   (unsigned int)status.in_predicted_window,
+                   (unsigned int)status.predictor_confident,
+                   (unsigned int)status.predictor_samples,
+                   (unsigned long)status.interval_ms,
+                   (unsigned long)status.jitter_ms,
+                   (unsigned long)status.transaction_span_ms,
+                   (unsigned int)status.scl_high,
+                   (unsigned int)status.sda_high);
+    console_write_text(msg);
 }
 
 static void console_command_ina232_usage(void)
@@ -266,6 +295,8 @@ static void console_process_command(const char *line)
         console_command_log_level(arg);
     } else if (strcmp(line, "fault last") == 0) {
         console_command_fault_last();
+    } else if (strcmp(line, "i2cmon") == 0) {
+        console_command_i2cmon();
     } else if (strncmp(line, "ina232", 6U) == 0) {
         const char *arg = NULL;
 

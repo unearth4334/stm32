@@ -306,6 +306,10 @@ static int platform_i2c_primary_guard_init(void)
 {
     GPIO_InitTypeDef gpio_cfg = {0};
 
+    if (s_i2c1_guard_ready != 0U) {
+        return PLATFORM_I2C_OK;
+    }
+
     BOARD_I2C1_MON_GPIO_CLK_EN();
     __HAL_RCC_SYSCFG_CLK_ENABLE();
 
@@ -323,6 +327,11 @@ static int platform_i2c_primary_guard_init(void)
     HAL_NVIC_EnableIRQ(BOARD_I2C1_MON_IRQn);
 
     return PLATFORM_I2C_OK;
+}
+
+int platform_i2c_primary_monitor_init(void)
+{
+    return platform_i2c_primary_guard_init();
 }
 
 platform_i2c_handle_t platform_i2c_primary_handle(void)
@@ -374,6 +383,12 @@ int platform_i2c_primary_bus_guard_status(platform_i2c_bus_guard_status_t *statu
 
     if (status == NULL) {
         return PLATFORM_I2C_ERR_INVALID_ARG;
+    }
+
+    if (s_i2c1_guard_ready == 0U) {
+        if (platform_i2c_primary_guard_init() != PLATFORM_I2C_OK) {
+            return PLATFORM_I2C_ERR_BUS;
+        }
     }
 
     now_ms = HAL_GetTick();

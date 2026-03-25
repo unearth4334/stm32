@@ -79,6 +79,28 @@ int ina232_service_read_field(const char *field, char *out, uint16_t out_len)
         return INA232_ERR_INVALID_ARG;
     }
 
+    if (strcmp(field, "bus_guard") == 0) {
+        st = platform_i2c_primary_bus_guard_status(&bus_guard);
+        if (st != PLATFORM_I2C_OK) {
+            ina232_service_set_msg(out, out_len, "bus_guard read failed");
+            return INA232_ERR_I2C;
+        }
+
+        (void)snprintf(out,
+                       out_len,
+                       "bus_guard=%s window=%s conf=%u n=%u int=%lu jit=%lu span=%lu scl=%u sda=%u",
+                       (bus_guard.bus_idle != 0U) ? "idle" : "busy",
+                       (bus_guard.in_predicted_window != 0U) ? "blocked" : "open",
+                       (unsigned int)bus_guard.predictor_confident,
+                       (unsigned int)bus_guard.predictor_samples,
+                       (unsigned long)bus_guard.interval_ms,
+                       (unsigned long)bus_guard.jitter_ms,
+                       (unsigned long)bus_guard.transaction_span_ms,
+                       (unsigned int)bus_guard.scl_high,
+                       (unsigned int)bus_guard.sda_high);
+        return INA232_OK;
+    }
+
     if (!s_ina232_ready) {
         ina232_service_set_msg(out, out_len, "ina232 not initialized");
         return INA232_ERR_NO_DEVICE;
@@ -101,28 +123,6 @@ int ina232_service_read_field(const char *field, char *out, uint16_t out_len)
             return st;
         }
         (void)snprintf(out, out_len, "mfr_id=0x%04X", mfr_id);
-        return INA232_OK;
-    }
-
-    if (strcmp(field, "bus_guard") == 0) {
-        st = platform_i2c_primary_bus_guard_status(&bus_guard);
-        if (st != PLATFORM_I2C_OK) {
-            ina232_service_set_msg(out, out_len, "bus_guard read failed");
-            return INA232_ERR_I2C;
-        }
-
-        (void)snprintf(out,
-                       out_len,
-                       "bus_guard=%s window=%s conf=%u n=%u int=%lu jit=%lu span=%lu scl=%u sda=%u",
-                       (bus_guard.bus_idle != 0U) ? "idle" : "busy",
-                       (bus_guard.in_predicted_window != 0U) ? "blocked" : "open",
-                       (unsigned int)bus_guard.predictor_confident,
-                       (unsigned int)bus_guard.predictor_samples,
-                       (unsigned long)bus_guard.interval_ms,
-                       (unsigned long)bus_guard.jitter_ms,
-                       (unsigned long)bus_guard.transaction_span_ms,
-                       (unsigned int)bus_guard.scl_high,
-                       (unsigned int)bus_guard.sda_high);
         return INA232_OK;
     }
 
