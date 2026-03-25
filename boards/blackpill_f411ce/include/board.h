@@ -48,6 +48,9 @@
 #define BOARD_DEBUG_UART_RX_PIN  GPIO_PIN_10
 #define BOARD_DEBUG_UART_GPIO_CLK_EN() __HAL_RCC_GPIOA_CLK_ENABLE()
 #define BOARD_DEBUG_UART_CLK_EN() __HAL_RCC_USART1_CLK_ENABLE()
+#define BOARD_DEBUG_UART_IRQn            USART1_IRQn
+/* Must be >= configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY to call FreeRTOS ISR APIs */
+#define BOARD_DEBUG_UART_IRQ_PRIORITY    5U
 
 /* ---------- Crystal / clock ---------------------------------------------- */
 #define BOARD_HSE_FREQ_HZ       25000000U

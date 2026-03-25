@@ -1,5 +1,6 @@
 #include "stm32f4xx_hal.h"
 #include "console/console.h"
+#include "platform/uart.h"
 
 #if defined(USE_FREERTOS)
 #include "FreeRTOS.h"
@@ -35,6 +36,11 @@ void SysTick_Handler(void)
 #endif
 
     HAL_IncTick();
+}
+
+void USART1_IRQHandler(void)
+{
+    platform_uart_irq_handler(platform_uart_debug_handle());
 }
 
 void HardFault_Handler(void)

@@ -8,6 +8,11 @@
 static UART_HandleTypeDef s_debug_uart;
 static uint8_t s_debug_uart_ready;
 
+/* Single-byte receive buffer for interrupt-driven reception */
+static uint8_t s_rx_byte;
+static platform_uart_rx_cb_t s_rx_cb;
+static void *s_rx_cb_ctx;
+
 platform_uart_handle_t platform_uart_debug_handle(void)
 {
     return (platform_uart_handle_t)&s_debug_uart;
@@ -49,6 +54,10 @@ int platform_uart_init(platform_uart_handle_t handle, uint32_t baudrate)
         s_debug_uart_ready = 0U;
         return PLATFORM_UART_ERR_IO;
     }
+
+    /* Configure USART1 IRQ — priority must be within FreeRTOS syscall range */
+    HAL_NVIC_SetPriority(BOARD_DEBUG_UART_IRQn, BOARD_DEBUG_UART_IRQ_PRIORITY, 0U);
+    HAL_NVIC_EnableIRQ(BOARD_DEBUG_UART_IRQn);
 
     s_debug_uart_ready = 1U;
     return PLATFORM_UART_OK;
@@ -104,4 +113,49 @@ int platform_uart_read(platform_uart_handle_t handle,
 
     *read_len = len;
     return PLATFORM_UART_OK;
+}
+
+int platform_uart_set_rx_callback(platform_uart_handle_t handle,
+                                  platform_uart_rx_cb_t cb,
+                                  void *ctx)
+{
+    if (!platform_uart_is_debug_handle(handle)) {
+        return PLATFORM_UART_ERR_INVALID_ARG;
+    }
+
+    s_rx_cb = cb;
+    s_rx_cb_ctx = ctx;
+    return PLATFORM_UART_OK;
+}
+
+int platform_uart_start_rx_it(platform_uart_handle_t handle)
+{
+    if ((!platform_uart_is_debug_handle(handle)) || (s_debug_uart_ready == 0U)) {
+        return PLATFORM_UART_ERR_INVALID_ARG;
+    }
+
+    if (HAL_UART_Receive_IT(&s_debug_uart, &s_rx_byte, 1U) != HAL_OK) {
+        return PLATFORM_UART_ERR_IO;
+    }
+
+    return PLATFORM_UART_OK;
+}
+
+void platform_uart_irq_handler(platform_uart_handle_t handle)
+{
+    if (platform_uart_is_debug_handle(handle)) {
+        HAL_UART_IRQHandler(&s_debug_uart);
+    }
+}
+
+/* Called by HAL after each single-byte IT reception completes. */
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+    if (huart->Instance == BOARD_DEBUG_UART) {
+        if (s_rx_cb != NULL) {
+            s_rx_cb(s_rx_byte, s_rx_cb_ctx);
+        }
+        /* Restart single-byte reception for the next character */
+        (void)HAL_UART_Receive_IT(&s_debug_uart, &s_rx_byte, 1U);
+    }
 }

@@ -8,10 +8,16 @@
 #include "platform/uart.h"
 #include "stm32f4xx_hal.h"
 
+#if defined(USE_FREERTOS)
+#include "FreeRTOS.h"
+#include "stream_buffer.h"
+#endif
+
 #define CONSOLE_LINE_MAX_LEN 96U
 #define CONSOLE_MSG_MAX_LEN 192U
 #define CONSOLE_FAULT_SIGNATURE 0x43464C54u /* CFLT */
 #define CONSOLE_UART_BAUDRATE 115200U
+#define CONSOLE_RX_STREAM_SIZE 64U
 
 static uint8_t s_console_ready;
 static console_log_level_t s_log_level = CONSOLE_LOG_INFO;
@@ -21,6 +27,20 @@ static char s_last_line[CONSOLE_LINE_MAX_LEN];
 static uint16_t s_line_len;
 static uint32_t s_drop_count;
 static console_fault_record_t s_fault_last;
+
+#if defined(USE_FREERTOS)
+static StreamBufferHandle_t s_rx_stream;
+
+static void console_rx_irq_cb(uint8_t byte, void *ctx)
+{
+    BaseType_t higher_task_woken = pdFALSE;
+    (void)ctx;
+    if (s_rx_stream != NULL) {
+        (void)xStreamBufferSendFromISR(s_rx_stream, &byte, 1U, &higher_task_woken);
+        portYIELD_FROM_ISR(higher_task_woken);
+    }
+}
+#endif
 
 static void console_write_text(const char *text)
 {
@@ -178,56 +198,83 @@ void console_init(void)
         return;
     }
 
+#if defined(USE_FREERTOS)
+    s_rx_stream = xStreamBufferCreate(CONSOLE_RX_STREAM_SIZE, 1U);
+    if (s_rx_stream == NULL) {
+        return;
+    }
+    (void)platform_uart_set_rx_callback(s_uart, console_rx_irq_cb, NULL);
+    (void)platform_uart_start_rx_it(s_uart);
+#endif
+
     s_console_ready = 1U;
     console_write_text("console ready\r\n");
     console_print_prompt();
 }
 
+static void console_process_char(uint8_t ch)
+{
+    if ((ch == '\r') || (ch == '\n')) {
+        console_write_text("\r\n");
+
+        s_line_buf[s_line_len] = '\0';
+        if (s_line_len == 0U) {
+            if (s_last_line[0] != '\0') {
+                console_process_command(s_last_line);
+            }
+        } else {
+            (void)strncpy(s_last_line, s_line_buf, sizeof(s_last_line) - 1U);
+            s_last_line[sizeof(s_last_line) - 1U] = '\0';
+            console_process_command(s_line_buf);
+        }
+
+        s_line_len = 0U;
+        console_print_prompt();
+        return;
+    }
+
+    if ((ch == 0x08U) || (ch == 0x7FU)) {
+        if (s_line_len > 0U) {
+            s_line_len--;
+        }
+        return;
+    }
+
+    if ((ch >= 0x20U) && (ch <= 0x7EU) && (s_line_len < (CONSOLE_LINE_MAX_LEN - 1U))) {
+        s_line_buf[s_line_len++] = (char)ch;
+        (void)platform_uart_write(s_uart, &ch, 1U, 10U);
+    }
+}
+
 void console_poll(void)
 {
     uint8_t ch;
-    uint16_t read_len;
 
     if (!s_console_ready) {
         return;
     }
 
-    while (platform_uart_read(s_uart, &ch, 1U, &read_len, 0U) == PLATFORM_UART_OK) {
-        if (read_len == 0U) {
-            break;
-        }
-
-        if ((ch == '\r') || (ch == '\n')) {
-            console_write_text("\r\n");
-
-            s_line_buf[s_line_len] = '\0';
-            if (s_line_len == 0U) {
-                if (s_last_line[0] != '\0') {
-                    console_process_command(s_last_line);
-                }
-            } else {
-                (void)strncpy(s_last_line, s_line_buf, sizeof(s_last_line) - 1U);
-                s_last_line[sizeof(s_last_line) - 1U] = '\0';
-                console_process_command(s_line_buf);
+#if defined(USE_FREERTOS)
+    /* Block until a byte arrives or 100 ms elapses */
+    if (xStreamBufferReceive(s_rx_stream, &ch, 1U, pdMS_TO_TICKS(100U)) == 0U) {
+        return;
+    }
+    console_process_char(ch);
+    /* Drain any bytes already buffered without further blocking */
+    while (xStreamBufferReceive(s_rx_stream, &ch, 1U, 0) > 0U) {
+        console_process_char(ch);
+    }
+#else
+    {
+        uint16_t read_len;
+        while (platform_uart_read(s_uart, &ch, 1U, &read_len, 0U) == PLATFORM_UART_OK) {
+            if (read_len == 0U) {
+                break;
             }
-
-            s_line_len = 0U;
-            console_print_prompt();
-            continue;
-        }
-
-        if ((ch == 0x08U) || (ch == 0x7FU)) {
-            if (s_line_len > 0U) {
-                s_line_len--;
-            }
-            continue;
-        }
-
-        if ((ch >= 0x20U) && (ch <= 0x7EU) && (s_line_len < (CONSOLE_LINE_MAX_LEN - 1U))) {
-            s_line_buf[s_line_len++] = (char)ch;
-            (void)platform_uart_write(s_uart, &ch, 1U, 10U);
+            console_process_char(ch);
         }
     }
+#endif
 }
 
 void console_set_level(console_log_level_t level)

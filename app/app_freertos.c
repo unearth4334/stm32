@@ -42,8 +42,9 @@ static void app_console_task(void *arg)
 
     while (1)
     {
+        /* console_poll() blocks internally on the RX stream buffer,
+         * so no artificial delay is needed here. */
         console_poll();
-        osal_delay_ms(APP_CONSOLE_POLL_PERIOD_MS);
     }
 }
 

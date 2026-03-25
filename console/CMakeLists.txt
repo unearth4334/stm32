@@ -19,3 +19,13 @@ target_link_libraries(console
     PUBLIC
         platform_stm32f4_hal
 )
+
+if(STM32_USE_FREERTOS)
+    set(FREERTOS_DIR "${CMAKE_SOURCE_DIR}/third_party/stm32cubef4/Middlewares/Third_Party/FreeRTOS/Source")
+    target_include_directories(console PRIVATE
+        ${FREERTOS_DIR}/include
+        ${FREERTOS_DIR}/portable/GCC/ARM_CM4F
+        ${CMAKE_SOURCE_DIR}/rtos/freertos
+    )
+    target_link_libraries(console PUBLIC freertos_kernel)
+endif()
