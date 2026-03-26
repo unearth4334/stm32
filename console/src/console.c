@@ -118,7 +118,7 @@ static void console_command_help(void)
 {
     console_write_text("commands: help, version, uptime, log level <0-3>, fault last, i2cmon, ina232\r\n");
     console_write_text("i2cmon\r\n");
-    console_write_text("ina232 -connect | -disconnect\r\n");
+    console_write_text("ina232 -connect [addr] | -disconnect\r\n");
     console_write_text("ina232 -r <field>\r\n");
     console_write_text("ina232 -w <field> <value>\r\n");
     console_write_text("fields: die_id, mfr_id, bus_guard, shunt_voltage, bus_voltage, current, power, config, calibration, alert_limit, mask_enable\r\n");
@@ -163,7 +163,7 @@ static void console_command_i2cmon(void)
 
 static void console_command_ina232_usage(void)
 {
-    console_write_text("usage: ina232 -connect | -disconnect | -r <field> | -w <field> <value>\r\n");
+    console_write_text("usage: ina232 -connect [addr] | -disconnect | -r <field> | -w <field> <value>\r\n");
 }
 
 static void console_command_ina232(const char *args)
@@ -192,8 +192,19 @@ static void console_command_ina232(const char *args)
 
     if (strcmp(op, "-connect") == 0) {
         platform_i2c_handle_t i2c = platform_i2c_primary_handle();
+        unsigned long addr = INA232_SERVICE_DEFAULT_ADDR;
+        char *end = NULL;
+        char out[64];
 
         if (field != NULL) {
+            addr = strtoul(field, &end, 0);
+            if ((end == field) || (*end != '\0') || (addr > 0x7FUL)) {
+                console_write_text("error: addr must be 7-bit (0..0x7F)\r\n");
+                return;
+            }
+        }
+
+        if (strtok(NULL, " ") != NULL) {
             console_command_ina232_usage();
             return;
         }
@@ -204,14 +215,15 @@ static void console_command_ina232(const char *args)
         }
 
         if (ina232_service_init(i2c,
-                                INA232_SERVICE_DEFAULT_ADDR,
+                                (uint8_t)addr,
                                 INA232_SERVICE_DEFAULT_SHUNT_OHMS,
                                 INA232_SERVICE_DEFAULT_MAX_CURRENT_A) != INA232_OK) {
             console_write_text("error: ina232 init failed\r\n");
             return;
         }
 
-        console_write_text("ina232 connected\r\n");
+        (void)snprintf(out, sizeof(out), "ina232 connected addr=0x%02lX\r\n", addr);
+        console_write_text(out);
         return;
     }
 
