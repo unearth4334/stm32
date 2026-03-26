@@ -118,6 +118,7 @@ static void console_command_help(void)
 {
     console_write_text("commands: help, version, uptime, log level <0-3>, fault last, i2cmon, ina232\r\n");
     console_write_text("i2cmon\r\n");
+    console_write_text("ina232 -connect | -disconnect\r\n");
     console_write_text("ina232 -r <field>\r\n");
     console_write_text("ina232 -w <field> <value>\r\n");
     console_write_text("fields: die_id, mfr_id, bus_guard, shunt_voltage, bus_voltage, current, power, config, calibration, alert_limit, mask_enable\r\n");
@@ -162,7 +163,7 @@ static void console_command_i2cmon(void)
 
 static void console_command_ina232_usage(void)
 {
-    console_write_text("usage: ina232 -r <field> | ina232 -w <field> <value>\r\n");
+    console_write_text("usage: ina232 -connect | -disconnect | -r <field> | -w <field> <value>\r\n");
 }
 
 static void console_command_ina232(const char *args)
@@ -184,7 +185,48 @@ static void console_command_ina232(const char *args)
     op = strtok(argbuf, " ");
     field = strtok(NULL, " ");
 
-    if ((op == NULL) || (field == NULL)) {
+    if (op == NULL) {
+        console_command_ina232_usage();
+        return;
+    }
+
+    if (strcmp(op, "-connect") == 0) {
+        platform_i2c_handle_t i2c = platform_i2c_primary_handle();
+
+        if (field != NULL) {
+            console_command_ina232_usage();
+            return;
+        }
+
+        if (platform_i2c_init_primary(i2c, 100000U) != PLATFORM_I2C_OK) {
+            console_write_text("error: i2c init failed\r\n");
+            return;
+        }
+
+        if (ina232_service_init(i2c,
+                                INA232_SERVICE_DEFAULT_ADDR,
+                                INA232_SERVICE_DEFAULT_SHUNT_OHMS,
+                                INA232_SERVICE_DEFAULT_MAX_CURRENT_A) != INA232_OK) {
+            console_write_text("error: ina232 init failed\r\n");
+            return;
+        }
+
+        console_write_text("ina232 connected\r\n");
+        return;
+    }
+
+    if (strcmp(op, "-disconnect") == 0) {
+        if (field != NULL) {
+            console_command_ina232_usage();
+            return;
+        }
+
+        ina232_service_disconnect();
+        console_write_text("ina232 disconnected\r\n");
+        return;
+    }
+
+    if (field == NULL) {
         console_command_ina232_usage();
         return;
     }

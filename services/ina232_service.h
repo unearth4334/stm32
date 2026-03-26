@@ -22,6 +22,8 @@ int ina232_service_init(platform_i2c_handle_t i2c,
                         float shunt_ohms,
                         float max_expected_current_a);
 
+void ina232_service_disconnect(void);
+
 int ina232_service_read_field(const char *field, char *out, uint16_t out_len);
 
 int ina232_service_write_field(const char *field,

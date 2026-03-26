@@ -65,6 +65,11 @@ int ina232_service_init(platform_i2c_handle_t i2c,
     return INA232_OK;
 }
 
+void ina232_service_disconnect(void)
+{
+    s_ina232_ready = 0U;
+}
+
 int ina232_service_read_field(const char *field, char *out, uint16_t out_len)
 {
     float fv;
