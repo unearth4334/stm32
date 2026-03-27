@@ -20,16 +20,6 @@ enum {
 };
 
 /**
- * @brief Returns the board's primary I2C handle.
- */
-platform_i2c_handle_t platform_i2c_primary_handle(void);
-
-/**
- * @brief Initializes the board's primary I2C peripheral.
- */
-int platform_i2c_init_primary(platform_i2c_handle_t handle, uint32_t clock_hz);
-
-/**
  * @brief Write bytes to an 8-bit register address over I2C.
  */
 int platform_i2c_mem_write(platform_i2c_handle_t handle,

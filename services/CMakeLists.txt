@@ -2,7 +2,6 @@
 
 add_library(services STATIC
     led_service.c
-    ina232_service.c
 )
 
 target_include_directories(services

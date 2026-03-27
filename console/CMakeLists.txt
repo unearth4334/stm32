@@ -17,7 +17,6 @@ target_include_directories(console
 
 target_link_libraries(console
     PUBLIC
-    services
         platform_stm32f4_hal
 )
 

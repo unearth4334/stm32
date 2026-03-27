@@ -14,32 +14,19 @@
  */
 
 #include "platform/clock.h"
-#include "platform/i2c.h"
 #include "board.h"
 #include "app_blinky.h"
 #include "app_freertos.h"
 #include "osal/task.h"
 #include "console/console.h"
-#include "ina232_service.h"
 
 /* Defined in platform/src/stm32f4/common/platform_init.c */
 extern void platform_init(void);
 
 int main(void)
 {
-    platform_i2c_handle_t i2c;
-
     platform_init();   /* HAL_Init + SystemClock_Config              */
     board_init();      /* Enable GPIO clocks, configure board hw     */
-
-    i2c = platform_i2c_primary_handle();
-    if (platform_i2c_init_primary(i2c, 100000U) == PLATFORM_I2C_OK) {
-        (void)ina232_service_init(i2c,
-                                  INA232_SERVICE_DEFAULT_ADDR,
-                                  INA232_SERVICE_DEFAULT_SHUNT_OHMS,
-                                  INA232_SERVICE_DEFAULT_MAX_CURRENT_A);
-    }
-
     console_init();
 
 #if defined(USE_FREERTOS)
