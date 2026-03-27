@@ -13,6 +13,7 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 # ── Board selection ─────────────────────────────────────────────────────────
 option(STM32_USE_L0 "Build for STM32L0 Discovery board instead of STM32F4" OFF)
 option(STM32_USE_FREERTOS "Enable FreeRTOS-oriented startup path" OFF)
+option(USE_USB_COMPOSITE "Build the experimental CDC+HID composite USB demo" OFF)
 
 # ── Common compile definitions ──────────────────────────────────────────────
 add_compile_definitions(USE_HAL_DRIVER)
@@ -66,9 +67,15 @@ add_subdirectory(app)
 if(STM32_USE_L0)
     add_subdirectory(boards/stm32l0_discovery)
     add_subdirectory(projects/stm32l0_discovery_blinky)
+    if(USE_USB_COMPOSITE)
+        add_subdirectory(projects/stm32l0_composite)
+    endif()
 else()
     add_subdirectory(boards/blackpill_f411ce)
     add_subdirectory(projects/blackpill_f411ce_blinky)
+    if(USE_USB_COMPOSITE)
+        add_subdirectory(projects/blackpill_f411ce_composite)
+    endif()
 endif()
 
 # ── Tests (host-side only, skip when cross-compiling) ──────────────────────

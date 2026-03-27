@@ -22,6 +22,7 @@
 #define HAL_CORTEX_MODULE_ENABLED
 #define HAL_PWR_MODULE_ENABLED
 #define HAL_FLASH_MODULE_ENABLED
+#define HAL_PCD_MODULE_ENABLED
 
 #define HSE_VALUE    8000000U  /*!< Value of the external oscillator in Hz */
 #define MSI_VALUE    2097000U  /*!< Value of the Multiple Speed Internal oscillator in Hz */
@@ -86,6 +87,10 @@
 #ifdef HAL_FLASH_MODULE_ENABLED
  #include "stm32l0xx_hal_flash.h"
 #endif /* HAL_FLASH_MODULE_ENABLED */
+
+#ifdef HAL_PCD_MODULE_ENABLED
+ #include "stm32l0xx_hal_pcd.h"
+#endif /* HAL_PCD_MODULE_ENABLED */
 
 /* Exported types and variables -----------------------------------------------*/
 

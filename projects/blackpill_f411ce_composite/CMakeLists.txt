@@ -1,7 +1,10 @@
-# Project: blackpill_f411ce_blinky
-# Produces: firmware.elf + firmware.bin + firmware.hex
+# Project: blackpill_f411ce_composite
+# Produces: firmware-composite.elf + .bin + .hex
+#
+# Links platform_usb_composite_f4 which already pulls in platform_stm32f4_hal,
+# so GPIO / UART / clock HAL sources are available without a separate dep.
 
-set(TARGET firmware)
+set(TARGET firmware-composite)
 
 set(PROJECT_SOURCES
     main.c
@@ -24,7 +27,6 @@ add_executable(${TARGET} ${PROJECT_SOURCES})
 target_include_directories(${TARGET} PRIVATE
     ${CMAKE_SOURCE_DIR}/boards/blackpill_f411ce/include
     ${CMAKE_SOURCE_DIR}/platform/include
-    ${CMAKE_SOURCE_DIR}/app
     ${CMSIS_INCLUDE_DIR}
     ${CMSIS_DEVICE_DIR}
     ${STM32CUBE_HAL_DIR}/Inc
@@ -33,11 +35,7 @@ target_include_directories(${TARGET} PRIVATE
 
 target_link_libraries(${TARGET}
     PRIVATE
-        app
-        services
-        drivers
-        platform_stm32f4_hal
-        platform_usb_cdc_f4
+        platform_usb_composite_f4
         board_blackpill_f411ce
 )
 

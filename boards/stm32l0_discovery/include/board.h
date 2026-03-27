@@ -49,4 +49,14 @@
 #define BOARD_DEBUG_UART_GPIO_CLK_EN() __HAL_RCC_GPIOA_CLK_ENABLE()
 #define BOARD_DEBUG_UART_CLK_EN() __HAL_RCC_USART2_CLK_ENABLE()
 
+/* ---------- USB FS device (PA11=DM, PA12=DP, dedicated USB pins) ----------- */
+#define BOARD_USB_DM_PORT        GPIOA
+#define BOARD_USB_DM_PIN         GPIO_PIN_11
+#define BOARD_USB_DP_PORT        GPIOA
+#define BOARD_USB_DP_PIN         GPIO_PIN_12
+#define BOARD_USB_GPIO_CLK_EN()  __HAL_RCC_GPIOA_CLK_ENABLE()
+#define BOARD_USB_CLK_EN()       __HAL_RCC_USB_CLK_ENABLE()
+#define BOARD_USB_IRQn           USB_IRQn
+#define BOARD_USB_IRQ_PRIORITY   5U
+
 #endif /* BOARD_H */
