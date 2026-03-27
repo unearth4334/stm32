@@ -46,3 +46,53 @@ target_sources(platform_stm32f4_hal PRIVATE
     ${CMAKE_SOURCE_DIR}/third_party/stm32cubef4/Middlewares/ST/STM32_USB_Device_Library/Core/Src/usbd_ioreq.c
     ${CMAKE_SOURCE_DIR}/third_party/stm32cubef4/Middlewares/ST/STM32_USB_Device_Library/Class/CDC/Src/usbd_cdc.c
 )
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STM32L0 platform library (optional, for STM32L0 Discovery board)
+# ─────────────────────────────────────────────────────────────────────────────
+
+if(STM32_USE_L0)
+    set(STM32CUBE_L0_HAL_DIR "${CMAKE_SOURCE_DIR}/third_party/stm32cubel0/Drivers/STM32L0xx_HAL_Driver")
+
+    if(EXISTS "${CMAKE_SOURCE_DIR}/third_party/cmsis/Include")
+        set(CMSIS_L0_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/third_party/cmsis/Include")
+        set(CMSIS_L0_DEVICE_DIR  "${CMAKE_SOURCE_DIR}/third_party/cmsis/Device/ST/STM32L0xx/Include")
+    else()
+        set(CMSIS_L0_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/third_party/stm32cubel0/Drivers/CMSIS/Include")
+        set(CMSIS_L0_DEVICE_DIR  "${CMAKE_SOURCE_DIR}/third_party/stm32cubel0/Drivers/CMSIS/Device/ST/STM32L0xx/Include")
+    endif()
+
+    add_library(platform_stm32l0_hal STATIC
+        src/stm32l0/hal/platform_gpio.c
+        src/stm32l0/hal/platform_clock.c
+        src/stm32l0/hal/platform_i2c.c
+        src/stm32l0/hal/platform_uart.c
+        src/stm32l0/common/platform_init.c
+    )
+
+    target_include_directories(platform_stm32l0_hal
+        PUBLIC
+            ${CMAKE_CURRENT_SOURCE_DIR}/include
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/stm32l0/hal
+            ${CMSIS_L0_INCLUDE_DIR}
+            ${CMSIS_L0_DEVICE_DIR}
+            ${STM32CUBE_L0_HAL_DIR}/Inc
+            ${STM32CUBE_L0_HAL_DIR}/Inc/Legacy
+            ${CMAKE_SOURCE_DIR}/boards/stm32l0_discovery/include  # board.h
+    )
+
+    # STM32CubeL0 HAL source (only the files we actually use)
+    target_sources(platform_stm32l0_hal PRIVATE
+        ${STM32CUBE_L0_HAL_DIR}/Src/stm32l0xx_hal.c
+        ${STM32CUBE_L0_HAL_DIR}/Src/stm32l0xx_hal_cortex.c
+        ${STM32CUBE_L0_HAL_DIR}/Src/stm32l0xx_hal_gpio.c
+        ${STM32CUBE_L0_HAL_DIR}/Src/stm32l0xx_hal_dma.c
+        ${STM32CUBE_L0_HAL_DIR}/Src/stm32l0xx_hal_i2c.c
+        ${STM32CUBE_L0_HAL_DIR}/Src/stm32l0xx_hal_uart.c
+        ${STM32CUBE_L0_HAL_DIR}/Src/stm32l0xx_hal_rcc.c
+        ${STM32CUBE_L0_HAL_DIR}/Src/stm32l0xx_hal_rcc_ex.c
+        ${STM32CUBE_L0_HAL_DIR}/Src/stm32l0xx_hal_pwr.c
+        ${STM32CUBE_L0_HAL_DIR}/Src/stm32l0xx_hal_pwr_ex.c
+    )
+endif()
