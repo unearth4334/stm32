@@ -2,6 +2,7 @@
 
 add_library(drivers STATIC
     led/led_driver.c
+    ads7822/ads7822_driver.c
     ina232/ina232_driver.c
 )
 
