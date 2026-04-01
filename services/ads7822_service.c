@@ -1,5 +1,7 @@
 #include "ads7822_service.h"
 
+#include <stddef.h>
+
 #include "ads7822/ads7822_driver.h"
 
 static ads7822_t s_ads7822;
