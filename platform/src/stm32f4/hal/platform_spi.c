@@ -66,7 +66,7 @@ int platform_spi_init(platform_spi_handle_t handle, const platform_spi_config_t 
     BOARD_SPI1_GPIO_CLK_EN();
     BOARD_SPI1_CLK_EN();
 
-    gpio_cfg.Pin = BOARD_SPI1_SCK_PIN | BOARD_SPI1_MISO_PIN | BOARD_SPI1_MOSI_PIN;
+    gpio_cfg.Pin = BOARD_SPI1_SCK_PIN | BOARD_SPI1_MISO_PIN;
     gpio_cfg.Mode = GPIO_MODE_AF_PP;
     gpio_cfg.Pull = GPIO_NOPULL;
     gpio_cfg.Speed = GPIO_SPEED_FREQ_VERY_HIGH;

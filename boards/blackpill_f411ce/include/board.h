@@ -39,16 +39,20 @@
 #define BOARD_I2C1_GPIO_CLK_EN() __HAL_RCC_GPIOB_CLK_ENABLE()
 #define BOARD_I2C1_CLK_EN()     __HAL_RCC_I2C1_CLK_ENABLE()
 
-/* ---------- SPI1 (PA5=SCK, PA6=MISO, PA7=MOSI, AF5) ---------------------- */
+/* ---------- SPI1 for ADS7822 (PA5=SCK, PA6=MISO, AF5) -------------------- */
 #define BOARD_SPI1_INSTANCE      SPI1
 #define BOARD_SPI1_SCK_PORT      GPIOA
 #define BOARD_SPI1_SCK_PIN       GPIO_PIN_5
 #define BOARD_SPI1_MISO_PORT     GPIOA
 #define BOARD_SPI1_MISO_PIN      GPIO_PIN_6
-#define BOARD_SPI1_MOSI_PORT     GPIOA
-#define BOARD_SPI1_MOSI_PIN      GPIO_PIN_7
 #define BOARD_SPI1_GPIO_CLK_EN() __HAL_RCC_GPIOA_CLK_ENABLE()
 #define BOARD_SPI1_CLK_EN()      __HAL_RCC_SPI1_CLK_ENABLE()
+
+/* ---------- ADS7822 control pins ----------------------------------------- */
+#define BOARD_ADS7822_NCS_PORT       GPIOA
+#define BOARD_ADS7822_NCS_PIN        GPIO_PIN_7
+#define BOARD_ADS7822_LOAD_SW_PORT   GPIOA
+#define BOARD_ADS7822_LOAD_SW_PIN    GPIO_PIN_4
 
 /* ---------- UART1 (debug / ST-Link virtual COM on some boards) ------------ */
 #define BOARD_DEBUG_UART        USART1
