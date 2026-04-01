@@ -3,65 +3,55 @@
 #include <stddef.h>
 
 #include "platform/gpio.h"
+#include "platform/spi.h"
 
-#define ADS7822_WARMUP_CLOCKS 2U
-#define ADS7822_DATA_BITS     12U
-#define ADS7822_FULL_SCALE    4096.0f
+#define ADS7822_SPI_TRANSFER_BYTES 2U
+#define ADS7822_FULL_SCALE         4096.0f
+#define ADS7822_SPI_TIMEOUT_MS     10U
 
 static int ads7822_validate_device(const ads7822_t *dev)
 {
     if (dev == NULL ||
+        dev->spi == NULL ||
         dev->cs_port == NULL ||
-        dev->clk_port == NULL ||
-        dev->dout_port == NULL ||
-        dev->cs_pin == 0U ||
-        dev->clk_pin == 0U ||
-        dev->dout_pin == 0U) {
+        dev->cs_pin == 0U) {
         return ADS7822_ERR_INVALID_ARG;
     }
 
     return ADS7822_OK;
 }
 
-static void ads7822_clock_falling_edge(ads7822_t *dev)
-{
-    platform_gpio_write(dev->clk_port, dev->clk_pin, 1U);
-    platform_gpio_write(dev->clk_port, dev->clk_pin, 0U);
-}
-
 int ads7822_init(ads7822_t *dev,
+                 platform_spi_handle_t spi,
                  void *cs_port,
                  uint32_t cs_pin,
-                 void *clk_port,
-                 uint32_t clk_pin,
-                 void *dout_port,
-                 uint32_t dout_pin,
                  float vref_v)
 {
+    static const platform_spi_config_t spi_cfg = {
+        PLATFORM_SPI_MODE_0,
+        PLATFORM_SPI_BIT_ORDER_MSB_FIRST,
+        PLATFORM_SPI_BAUDRATE_DIV_128,
+    };
+
     if (dev == NULL ||
+        spi == NULL ||
         cs_port == NULL ||
-        clk_port == NULL ||
-        dout_port == NULL ||
         cs_pin == 0U ||
-        clk_pin == 0U ||
-        dout_pin == 0U ||
         vref_v <= 0.0f) {
         return ADS7822_ERR_INVALID_ARG;
     }
 
+    dev->spi = spi;
     dev->cs_port = cs_port;
     dev->cs_pin = cs_pin;
-    dev->clk_port = clk_port;
-    dev->clk_pin = clk_pin;
-    dev->dout_port = dout_port;
-    dev->dout_pin = dout_pin;
     dev->vref_v = vref_v;
 
-    platform_gpio_init_output(dev->cs_port, dev->cs_pin, PLATFORM_GPIO_SPEED_HIGH);
-    platform_gpio_init_output(dev->clk_port, dev->clk_pin, PLATFORM_GPIO_SPEED_HIGH);
-    platform_gpio_init_input(dev->dout_port, dev->dout_pin);
+    if (platform_spi_init(dev->spi, &spi_cfg) != PLATFORM_SPI_OK) {
+        return ADS7822_ERR_IO;
+    }
 
-    platform_gpio_write(dev->clk_port, dev->clk_pin, 0U);
+    platform_gpio_init_output(dev->cs_port, dev->cs_pin, PLATFORM_GPIO_SPEED_HIGH);
+
     platform_gpio_write(dev->cs_port, dev->cs_pin, 1U);
 
     return ADS7822_OK;
@@ -69,8 +59,9 @@ int ads7822_init(ads7822_t *dev,
 
 int ads7822_read_raw(ads7822_t *dev, uint16_t *sample)
 {
-    uint16_t raw = 0U;
-    uint32_t i;
+    static const uint8_t tx_buf[ADS7822_SPI_TRANSFER_BYTES] = {0U, 0U};
+    uint8_t rx_buf[ADS7822_SPI_TRANSFER_BYTES] = {0U, 0U};
+    uint16_t frame;
     int st;
 
     if (sample == NULL) {
@@ -84,18 +75,21 @@ int ads7822_read_raw(ads7822_t *dev, uint16_t *sample)
 
     platform_gpio_write(dev->cs_port, dev->cs_pin, 0U);
 
-    for (i = 0U; i < ADS7822_WARMUP_CLOCKS; ++i) {
-        ads7822_clock_falling_edge(dev);
-    }
-
-    for (i = 0U; i < ADS7822_DATA_BITS; ++i) {
-        ads7822_clock_falling_edge(dev);
-        raw = (uint16_t)((raw << 1) | (uint16_t)(platform_gpio_read(dev->dout_port, dev->dout_pin) & 0x01U));
+    if (platform_spi_transceive(dev->spi,
+                                tx_buf,
+                                rx_buf,
+                                ADS7822_SPI_TRANSFER_BYTES,
+                                ADS7822_SPI_TIMEOUT_MS) != PLATFORM_SPI_OK) {
+        platform_gpio_write(dev->cs_port, dev->cs_pin, 1U);
+        return ADS7822_ERR_IO;
     }
 
     platform_gpio_write(dev->cs_port, dev->cs_pin, 1U);
 
-    *sample = raw;
+    frame = ((uint16_t)rx_buf[0] << 8) | (uint16_t)rx_buf[1];
+
+    /* Clocks 1-2 are pipeline/Hi-Z. Clocks 3-14 carry B11..B0. */
+    *sample = (uint16_t)((frame >> 2) & 0x0FFFU);
     return ADS7822_OK;
 }
 
@@ -129,5 +123,4 @@ void ads7822_power_down(ads7822_t *dev)
     }
 
     platform_gpio_write(dev->cs_port, dev->cs_pin, 1U);
-    platform_gpio_write(dev->clk_port, dev->clk_pin, 0U);
 }

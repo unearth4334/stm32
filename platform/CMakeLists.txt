@@ -4,6 +4,7 @@ add_library(platform_stm32f4_hal STATIC
     src/stm32f4/hal/platform_gpio.c
     src/stm32f4/hal/platform_clock.c
     src/stm32f4/hal/platform_i2c.c
+    src/stm32f4/hal/platform_spi.c
     src/stm32f4/hal/platform_uart.c
     src/stm32f4/hal/platform_usb_cdc.c
     src/stm32f4/hal/usbd_conf.c
@@ -33,6 +34,7 @@ target_sources(platform_stm32f4_hal PRIVATE
     ${STM32CUBE_HAL_DIR}/Src/stm32f4xx_hal_gpio.c
     ${STM32CUBE_HAL_DIR}/Src/stm32f4xx_hal_dma.c
     ${STM32CUBE_HAL_DIR}/Src/stm32f4xx_hal_i2c.c
+    ${STM32CUBE_HAL_DIR}/Src/stm32f4xx_hal_spi.c
     ${STM32CUBE_HAL_DIR}/Src/stm32f4xx_hal_uart.c
     ${STM32CUBE_HAL_DIR}/Src/stm32f4xx_hal_pcd.c
     ${STM32CUBE_HAL_DIR}/Src/stm32f4xx_hal_pcd_ex.c

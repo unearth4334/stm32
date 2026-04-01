@@ -13,6 +13,7 @@ extern "C" {
 #define HAL_FLASH_MODULE_ENABLED
 #define HAL_GPIO_MODULE_ENABLED
 #define HAL_I2C_MODULE_ENABLED
+#define HAL_SPI_MODULE_ENABLED
 #define HAL_DMA_MODULE_ENABLED
 #define HAL_UART_MODULE_ENABLED
 #define HAL_PCD_MODULE_ENABLED
@@ -75,6 +76,10 @@ extern "C" {
 
 #ifdef HAL_I2C_MODULE_ENABLED
 #include "stm32f4xx_hal_i2c.h"
+#endif
+
+#ifdef HAL_SPI_MODULE_ENABLED
+#include "stm32f4xx_hal_spi.h"
 #endif
 
 #ifdef HAL_UART_MODULE_ENABLED
