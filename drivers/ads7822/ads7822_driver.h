@@ -33,9 +33,13 @@ int ads7822_init(ads7822_t *dev,
                  uint32_t cs_pin,
                  float vref_v);
 
+int ads7822_init_default(ads7822_t *dev);
+
 int ads7822_read_raw(ads7822_t *dev, uint16_t *sample);
 
 int ads7822_read_voltage_v(ads7822_t *dev, float *voltage_v);
+
+void ads7822_load_switch_enable(uint8_t enable);
 
 void ads7822_power_down(ads7822_t *dev);
 

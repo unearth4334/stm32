@@ -1,6 +1,7 @@
 # services — business-logic wrappers over drivers
 
 add_library(services STATIC
+    ads7822_service.c
     led_service.c
 )
 

@@ -2,6 +2,7 @@
 
 #include <stddef.h>
 
+#include "board.h"
 #include "platform/gpio.h"
 #include "platform/spi.h"
 
@@ -55,6 +56,20 @@ int ads7822_init(ads7822_t *dev,
     platform_gpio_write(dev->cs_port, dev->cs_pin, 1U);
 
     return ADS7822_OK;
+}
+
+int ads7822_init_default(ads7822_t *dev)
+{
+    platform_gpio_init_output(BOARD_ADS7822_LOAD_SW_PORT,
+                              BOARD_ADS7822_LOAD_SW_PIN,
+                              PLATFORM_GPIO_SPEED_LOW);
+    ads7822_load_switch_enable(1U);
+
+    return ads7822_init(dev,
+                        platform_spi1_handle(),
+                        BOARD_ADS7822_NCS_PORT,
+                        BOARD_ADS7822_NCS_PIN,
+                        BOARD_ADS7822_VREF_V);
 }
 
 int ads7822_read_raw(ads7822_t *dev, uint16_t *sample)
@@ -114,6 +129,13 @@ int ads7822_read_voltage_v(ads7822_t *dev, float *voltage_v)
 
     *voltage_v = ((float)raw * dev->vref_v) / ADS7822_FULL_SCALE;
     return ADS7822_OK;
+}
+
+void ads7822_load_switch_enable(uint8_t enable)
+{
+    platform_gpio_write(BOARD_ADS7822_LOAD_SW_PORT,
+                        BOARD_ADS7822_LOAD_SW_PIN,
+                        enable ? 1U : 0U);
 }
 
 void ads7822_power_down(ads7822_t *dev)

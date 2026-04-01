@@ -53,6 +53,7 @@
 #define BOARD_ADS7822_NCS_PIN        GPIO_PIN_7
 #define BOARD_ADS7822_LOAD_SW_PORT   GPIOA
 #define BOARD_ADS7822_LOAD_SW_PIN    GPIO_PIN_4
+#define BOARD_ADS7822_VREF_V         3.0f
 
 /* ---------- UART1 (debug / ST-Link virtual COM on some boards) ------------ */
 #define BOARD_DEBUG_UART        USART1
