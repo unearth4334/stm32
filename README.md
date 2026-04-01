@@ -115,6 +115,39 @@ Output: `build/projects/blackpill_f411ce_blinky/firmware.elf` + `.bin` + `.hex`
 dfu-util -a 0 -s 0x08000000:leave -D build/projects/blackpill_f411ce_blinky/firmware.bin
 ```
 
+### 5. Monitor ADS7822 Output
+
+The ADS7822 integration logs periodic samples through the console layer using lines like:
+
+```text
+[1234] I/ads7822: sample=2048
+```
+
+Use the host-side monitor script to watch those lines on the board's serial console and convert raw samples into volts:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/monitor_adc.ps1 -Port COM7
+```
+
+Common options:
+
+```powershell
+# Auto-select a likely STM32 serial port when possible
+powershell -ExecutionPolicy Bypass -File scripts/monitor_adc.ps1
+
+# Save parsed samples to CSV while monitoring
+powershell -ExecutionPolicy Bypass -File scripts/monitor_adc.ps1 -Port COM7 -CsvPath adc.csv
+
+# Print every console line in addition to parsed ADC samples
+powershell -ExecutionPolicy Bypass -File scripts/monitor_adc.ps1 -Port COM7 -PassThru
+```
+
+Notes:
+
+- FreeRTOS builds emit the console over USB CDC, so the board should appear as a COM port on the host.
+- Bare-metal builds use the debug UART on USART1 at 115200 baud.
+- The script defaults to a 3.0 V ADC reference to match the current board wiring.
+
 ---
 
 ## Design Principles (from application note)
