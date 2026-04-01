@@ -135,7 +135,7 @@ void ads7822_load_switch_enable(uint8_t enable)
 {
     platform_gpio_write(BOARD_ADS7822_LOAD_SW_PORT,
                         BOARD_ADS7822_LOAD_SW_PIN,
-                        enable ? 1U : 0U);
+                        enable ? BOARD_ADS7822_LOAD_SW_ON_LEVEL : BOARD_ADS7822_LOAD_SW_OFF_LEVEL);
 }
 
 void ads7822_power_down(ads7822_t *dev)
