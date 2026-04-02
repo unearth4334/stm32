@@ -103,8 +103,8 @@ int ads7822_read_raw(ads7822_t *dev, uint16_t *sample)
 
     frame = ((uint16_t)rx_buf[0] << 8) | (uint16_t)rx_buf[1];
 
-    /* Clocks 1-2 are pipeline/Hi-Z. Clocks 3-14 carry B11..B0. */
-    *sample = (uint16_t)((frame >> 2) & 0x0FFFU);
+    /* The captured 16-bit frame presents the 12-bit sample in bits 11:0. */
+    *sample = (uint16_t)(frame & 0x0FFFU);
     return ADS7822_OK;
 }
 

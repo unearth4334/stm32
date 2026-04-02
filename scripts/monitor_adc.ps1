@@ -10,6 +10,10 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+$hvFiltTopOhms = 30000000.0
+$hvFiltBottomOhms = 150000.0
+$hvFiltDividerGain = ($hvFiltTopOhms + $hvFiltBottomOhms) / $hvFiltBottomOhms
+
 function Get-SerialPortDescriptions {
     $portDescriptions = @{}
     $ports = [System.IO.Ports.SerialPort]::GetPortNames() | Sort-Object
@@ -113,7 +117,7 @@ $csvWriter = $null
 if ($CsvPath) {
     $csvWriter = [System.IO.StreamWriter]::new($CsvPath, $true, [System.Text.Encoding]::ASCII)
     if ((Test-Path $CsvPath) -and ((Get-Item $CsvPath).Length -eq 0)) {
-        $csvWriter.WriteLine('host_timestamp_utc,tick_ms,raw_sample,voltage_v')
+        $csvWriter.WriteLine('host_timestamp_utc,tick_ms,raw_sample,hv_vmon_m_v,hv_filt_v')
         $csvWriter.Flush()
     }
 }
@@ -127,6 +131,7 @@ try {
 
     Write-Host ("Monitoring ADS7822 output on {0} at {1} baud. Press Ctrl+C to stop." -f $selectedPort, $BaudRate)
     Write-Host ("Using Vref = {0:N3} V" -f $Vref)
+    Write-Host ("Using HV_FILT divider gain = {0:N3} ({1:N0} ohm / {2:N0} ohm)" -f $hvFiltDividerGain, $hvFiltTopOhms, $hvFiltBottomOhms)
 
     while ($true) {
         try {
@@ -146,17 +151,18 @@ try {
         if ($line -match $samplePattern) {
             $tickMs = [int]$Matches['tick']
             $rawSample = [int]$Matches['sample']
-            $voltage = ($rawSample / 4095.0) * $Vref
+            $hvVmonM = ($rawSample / 4095.0) * $Vref
+            $hvFilt = $hvVmonM * $hvFiltDividerGain
             $timestamp = [DateTime]::UtcNow
 
             Write-Host (
-                "{0:HH:mm:ss.fff}  tick={1,8} ms  raw={2,4}  voltage={3:N4} V" -f
-                $timestamp.ToLocalTime(), $tickMs, $rawSample, $voltage
+                "{0:HH:mm:ss.fff}  tick={1,8} ms  raw={2,4}  HV_VMON_M={3:N4} V  HV_FILT={4:N3} V" -f
+                $timestamp.ToLocalTime(), $tickMs, $rawSample, $hvVmonM, $hvFilt
             )
 
             if ($null -ne $csvWriter) {
                 $csvWriter.WriteLine(
-                    "{0:o},{1},{2},{3:F6}" -f $timestamp, $tickMs, $rawSample, $voltage
+                    "{0:o},{1},{2},{3:F6},{4:F6}" -f $timestamp, $tickMs, $rawSample, $hvVmonM, $hvFilt
                 )
                 $csvWriter.Flush()
             }

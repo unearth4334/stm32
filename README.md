@@ -123,7 +123,7 @@ The ADS7822 integration logs periodic samples through the console layer using li
 [1234] I/ads7822: sample=2048
 ```
 
-Use the host-side monitor script to watch those lines on the board's serial console and convert raw samples into volts:
+Use the host-side monitor script to watch those lines on the board's serial console, convert raw samples into `HV_VMON_M`, and reconstruct `HV_FILT` from the resistor divider:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/monitor_adc.ps1 -Port COM7
