@@ -1,0 +1,8 @@
+# Requirements for scripts/dp711_hv_sweep.py
+#
+# Install with:
+#   pip install -r scripts/requirements-dp711_hv_sweep.txt
+#
+pyserial>=3.5
+matplotlib>=3.5
+lab-drivers @ git+https://github.com/unearth4334/lab-drivers.git@v0.3.2

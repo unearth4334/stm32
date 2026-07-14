@@ -8,6 +8,7 @@ __pycache__/
 *.pyo
 *.pyd
 .venv/
+.venv_local/
 venv/
 
 # CMake / Ninja / Make build outputs
@@ -49,6 +50,9 @@ Makefile
 *.swo
 *.bak
 *.orig
+
+# Generated measurement outputs
+artifacts/measurements/
 
 # IDE metadata (common embedded tooling)
 .idea/
