@@ -9,6 +9,20 @@
 #define ADS7822_SPI_TRANSFER_BYTES 2U
 #define ADS7822_FULL_SCALE         4096.0f
 #define ADS7822_SPI_TIMEOUT_MS     10U
+#define ADS7822_TSUCS_DELAY_CYCLES 240U
+
+static void ads7822_cs_to_clock_delay(void)
+{
+    volatile uint32_t i;
+
+    /*
+     * Give DOUT time to leave Hi-Z and align to the documented
+     * null-bit + B11..B0 shift-out sequence after CS goes low.
+     */
+    for (i = 0U; i < ADS7822_TSUCS_DELAY_CYCLES; i++) {
+        __NOP();
+    }
+}
 
 static int ads7822_validate_device(const ads7822_t *dev)
 {
@@ -89,6 +103,7 @@ int ads7822_read_raw(ads7822_t *dev, uint16_t *sample)
     }
 
     platform_gpio_write(dev->cs_port, dev->cs_pin, 0U);
+    ads7822_cs_to_clock_delay();
 
     if (platform_spi_transceive(dev->spi,
                                 tx_buf,
