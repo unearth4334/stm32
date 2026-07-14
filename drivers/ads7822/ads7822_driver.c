@@ -103,8 +103,12 @@ int ads7822_read_raw(ads7822_t *dev, uint16_t *sample)
 
     frame = ((uint16_t)rx_buf[0] << 8) | (uint16_t)rx_buf[1];
 
-    /* ADS7822 data is aligned in the upper 12 bits of the 16-bit frame. */
-    *sample = (uint16_t)((frame >> 4) & 0x0FFFU);
+    /*
+     * ADS7822 serial stream is: null, B11..B0, then repeated LSB-first bits.
+     * With a 16-clock SPI capture, discard the leading null bit and trailing
+     * repeat bits, then keep the 12 valid conversion bits.
+     */
+    *sample = (uint16_t)((frame >> 3) & 0x0FFFU);
     return ADS7822_OK;
 }
 
