@@ -148,6 +148,33 @@ Notes:
 - Bare-metal builds use the debug UART on USART1 at 115200 baud.
 - The script defaults to a 3.0 V ADC reference to match the current board wiring.
 
+### 6. PS310 Ramp Capture
+
+Use the ramp script to step the Stanford PS310 through a voltage pattern and capture one CSV row per step after the requested settling delay. Each row includes PS310 setpoint and measurements plus the next fresh STM32 ADS7822 console sample.
+
+Dependencies:
+
+```powershell
+.venv\Scripts\python.exe -m pip install pyserial
+.venv\Scripts\python.exe -m pip install -e "git+https://github.com/unearth4334/lab-drivers.git#egg=lab-drivers"
+```
+
+You also need a system VISA runtime for the PS310 connection. On Windows, install a 64-bit backend such as NI-VISA or Keysight IO Libraries so PyVISA can open `GPIB0::14::INSTR` resources.
+
+Example:
+
+```powershell
+.venv\Scripts\python.exe scripts/ps310_adc_ramp.py `
+      --stm32-port COM18 `
+      --ps310-address GPIB0::14::INSTR `
+      --start-voltage -100 `
+      --step-size -50 `
+      --end-voltage -300 `
+      --settling-time 5
+```
+
+The CSV is written under `artifacts/measurements/` by default and contains the PS310 identification, set voltage, filtered/raw measured voltage, measured current, limit settings, output state, STM32 tick, ADS7822 raw sample, `HV_VMON_M`, and reconstructed `HV_FILT`.
+
 ---
 
 ## Design Principles (from application note)
